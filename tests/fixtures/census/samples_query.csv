@@ -1,0 +1,16 @@
+id.accession,id.assay name,id.sample name,study.characteristics.sex,study.characteristics.strain,study.characteristics.material type,study.factor value.spaceflight,study.factor value.dissection condition,study.factor value.duration,study.factor value.euthanasia location,study.source name
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_FLT_C1,Female,FAKE/1J,Liver,Space Flight,Carcass,NaN,NaN,FAKE-1_FLT_M1
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_FLT_C2,Female,FAKE/1J,Liver,Space Flight,Carcass,NaN,NaN,FAKE-1_FLT_M2
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_FLT_C3_techrep1,Female,FAKE/1J,Liver,Space Flight,Carcass,NaN,NaN,FAKE-1_FLT_M3
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_FLT_C3_techrep2,Female,FAKE/1J,Liver,Space Flight,Carcass,NaN,NaN,FAKE-1_FLT_M3
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_GC_C1,Female,FAKE/1J,Liver,Ground Control,Carcass,NaN,NaN,FAKE-1_GC_M4
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_GC_C2,Female,FAKE/1J,Liver,Ground Control,Carcass,NaN,NaN,FAKE-1_GC_M5
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_GC_C3,Female,FAKE/1J,Liver,Ground Control,Carcass,NaN,NaN,FAKE-1_GC_M6
+OSD-FAKE-1,OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F1_GC_U1,Female,FAKE/1J,Liver,Ground Control,Upon euthanasia,NaN,NaN,FAKE-1_GC_M7
+OSD-FAKE-1,OSD-FAKE-1_protein-expression-profiling_mass-spectrometry_fake,F1_FLT_C1,Female,FAKE/1J,Liver,Space Flight,Carcass,NaN,NaN,FAKE-1_FLT_M1
+OSD-FAKE-2,OSD-FAKE-2_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F2_FLT_1,Female,FAKE/1J,Liver,Space Flight,NaN,~30 {day},On ISS,FAKE1_FLT_M1
+OSD-FAKE-2,OSD-FAKE-2_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F2_FLT_2,Female,FAKE/1J,Liver,Space Flight,NaN,~30 {day},On ISS,FAKE1_FLT_M2
+OSD-FAKE-2,OSD-FAKE-2_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F2_GC_1,Female,FAKE/2N,Liver,Ground Control,NaN,32 {day},On Earth,FAKE-1_GC_M4
+OSD-FAKE-2,OSD-FAKE-2_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F2_GC_2,Female,FAKE/1J,Liver,Ground Control,NaN,32 {day},On Earth,FAKE-2_GC_M9
+OSD-FAKE-3,OSD-FAKE-3_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F3_FLT_1,Male,FAKE/3,Liver,Space Flight,NaN,NaN,NaN,FAKE-3_FLT_1
+OSD-FAKE-3,OSD-FAKE-3_transcription-profiling_rna-sequencing-(rna-seq)_illumina,F3_FLT_2,Male,FAKE/3,Liver,Space Flight,NaN,NaN,NaN,FAKE-3_FLT_2

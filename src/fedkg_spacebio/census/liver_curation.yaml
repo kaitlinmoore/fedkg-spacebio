@@ -1,0 +1,43 @@
+# Where the FLIGHT animals were euthanized, for liver studies that do not record it as an OSDR
+# factor. OSD-245 and OSD-379 record it per sample (factor "euthanasia location": On ISS / On
+# Earth) and are read from the sample metadata instead.
+#
+# Source: each study's protocol text in OSDR (Biodata API v2 `dataset/<OSD>/`, field
+# `study protocol description`), read 2026-11-12. `evidence` quotes the sentence verbatim;
+# `confidence: stated` means the sentence says so, `inferred` means it follows from the sentence
+# but doesn't say it outright. Control arms (ground, vivarium, basal) are on Earth by definition.
+# Curated by Claude (WS-06); check before relying on it.
+
+OSD-47:
+  flight_euthanasia_location: ISS
+  confidence: stated
+  evidence: "The flight group mice were euthanized by ISS crew with Euthasol injection followed by cervical dislocation and liver collection on Launch +21 and +22 days."
+OSD-48:
+  flight_euthanasia_location: ISS
+  confidence: stated
+  evidence: "The flight group mice were euthanized by ISS crew with Euthasol injection followed by cervical dislocation."
+OSD-137:
+  flight_euthanasia_location: ISS
+  confidence: inferred
+  evidence: "At the end of the mission, spaceflight and ground controls had blood collected, were euthanized and one hindlimb removed and whole carcasses were stored at -80 C until BSP (Biospecimen Sharing Program) dissection on earth."
+  note: "Carcasses frozen and dissected later 'on earth' implies on-orbit euthanasia (RR-3 was an ISS-terminal mission); the sentence doesn't name the ISS."
+OSD-168:
+  flight_euthanasia_location: ISS
+  confidence: stated
+  evidence: "The flight animals were euthanized by ISS crew with Euthasol injection followed by cervical dislocation, frozen in a pre-chilled Mini Cold Bag (MCB) before transfer to the MELFI freezer (-80 C) and brought back to Earth."
+  note: "That sentence is RR-1's protocol; the RR-3 half follows OSD-137 (inferred ISS)."
+OSD-173:
+  flight_euthanasia_location: Earth
+  confidence: stated
+  evidence: "Mice were euthanized and dissected within 3-5 hours of landing."
+  note: "STS-135 (Space Shuttle), about 13 days of flight."
+OSD-463:
+  flight_euthanasia_location: Earth
+  confidence: stated
+  evidence: "Upon arrival at the TAMU Animal Care Facility (ACF), the mice underwent post-flight procedures, followed by euthanasia and tissue collection by the PI team."
+  note: "Live Animal Return on SpX-21; time from splashdown to euthanasia isn't stated in this sentence."
+OSD-686:
+  flight_euthanasia_location: Earth
+  confidence: stated
+  evidence: "All the mice were sacrificed and dissected within 36.5 h of splashdown."
+  note: "MHU-2 (JAXA); flight arms are uG and 1G by on-board centrifugation."

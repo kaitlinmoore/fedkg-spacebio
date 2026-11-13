@@ -1,0 +1,22 @@
+[
+ {"osd_id": "OSD-FAKE-1", "comparison_id": "OSD-FAKE-1-00000000000000000000000000000001",
+  "osdr_assay_name": "OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_ illumina",
+  "factor_space_1": "Space Flight", "factor_space_2": "Ground Control",
+  "factors_1": ["Space Flight", "Carcass"], "factors_2": ["Ground Control", "Carcass"],
+  "material_id_1": "FAKE:0001", "material_name_1": "fake liver", "n_de_edges_kg": 7, "de_method": "DESeq2"},
+ {"osd_id": "OSD-FAKE-1", "comparison_id": "OSD-FAKE-1-00000000000000000000000000000002",
+  "osdr_assay_name": "OSD-FAKE-1_transcription-profiling_rna-sequencing-(rna-seq)_illumina",
+  "factor_space_1": "Space Flight", "factor_space_2": "Ground Control",
+  "factors_1": ["Space Flight"], "factors_2": ["Ground Control"],
+  "material_id_1": "FAKE:0001", "material_name_1": "fake liver", "n_de_edges_kg": 3, "de_method": "DESeq2"},
+ {"osd_id": "OSD-FAKE-2", "comparison_id": "OSD-FAKE-2-00000000000000000000000000000003",
+  "osdr_assay_name": "OSD-FAKE-2_transcription-profiling_rna-sequencing-(rna-seq)_illumina",
+  "factor_space_1": "Space Flight", "factor_space_2": "Ground Control",
+  "factors_1": ["Space Flight", "~30 day", "On ISS"], "factors_2": ["Ground Control", "32 day", "On Earth"],
+  "material_id_1": "FAKE:0001", "material_name_1": "fake liver", "n_de_edges_kg": 0, "de_method": "DESeq2"},
+ {"osd_id": "OSD-FAKE-2", "comparison_id": "OSD-FAKE-2-00000000000000000000000000000004",
+  "osdr_assay_name": "OSD-FAKE-2_transcription-profiling_rna-sequencing-(rna-seq)_illumina",
+  "factor_space_1": "Space Flight", "factor_space_2": "Ground Control",
+  "factors_1": ["Space Flight", "~30 day", "On ISS"], "factors_2": ["Ground Control", "1 day", "On Earth"],
+  "material_id_1": "FAKE:0001", "material_name_1": "fake liver", "n_de_edges_kg": 0, "de_method": "DESeq2"}
+]

@@ -1,0 +1,10 @@
+{"studies": {"OSD-FAKE-1": {"study_files": [
+ {"category": "GeneLab Processed RNA-Seq Files", "file_name": "GLDS-FAKE-1_rna_seq_RSEM_Unnormalized_Counts_GLbulkRNAseq.csv", "file_size": 120, "date_created": 1700000000},
+ {"category": "GeneLab Processed RNA-Seq Files", "file_name": "GLDS-FAKE-1_rna_seq_RSEM_Unnormalized_Counts_rRNArm_GLbulkRNAseq.csv", "file_size": 110, "date_created": 1700000000},
+ {"category": "GeneLab Processed RNA-Seq Files", "file_name": "GLDS-FAKE-1_rna_seq_differential_expression_GLbulkRNAseq.csv", "file_size": 9000, "date_created": 1700000000},
+ {"category": "GeneLab Processed RNA-Seq Files", "file_name": "GLDS-FAKE-1_rna_seq_differential_expression_rRNArm_GLbulkRNAseq.csv", "file_size": 9000, "date_created": 1700000000},
+ {"category": "GeneLab Processed RNA-Seq Files", "file_name": "GLDS-FAKE-1_rna_seq_SampleTable_GLbulkRNAseq.csv", "file_size": 200, "date_created": 1700000000},
+ {"category": "GeneLab Processed RNA-Seq Files", "file_name": "GLDS-FAKE-1_rna_seq_contrasts_GLbulkRNAseq.csv", "file_size": 200, "date_created": 1700000000},
+ {"category": "GeneLab Processed RNA-Seq Files", "file_name": "GLDS-FAKE-1_rna_seq_FAKE-1_FLT_R1_raw.fastq.gz", "file_size": 99999999, "date_created": 1700000000},
+ {"category": "RNA-Seq", "file_name": "GLDS-FAKE-1_rna_seq_RSEM_Unnormalized_Counts_GLbulkRNAseq.csv", "file_size": 1, "date_created": 1600000000}
+]}}}

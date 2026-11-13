@@ -1,0 +1,4 @@
+"ENSEMBL","SYMBOL","ENTREZID","F1_FLT_C1","F1_GC_C1","Log2fc_(Space Flight & Carcass)v(Ground Control & Carcass)","Stat_(Space Flight & Carcass)v(Ground Control & Carcass)","P.value_(Space Flight & Carcass)v(Ground Control & Carcass)","Adj.p.value_(Space Flight & Carcass)v(Ground Control & Carcass)","Log2fc_(Space Flight & Carcass)v(Ground Control & Upon euthanasia)","P.value_(Space Flight & Carcass)v(Ground Control & Upon euthanasia)","Adj.p.value_(Space Flight & Carcass)v(Ground Control & Upon euthanasia)"
+"ENSMUSG00000000001","FakeA","1001",11,21,0.5,2.5,0.01,0.05,0.1,0.5,0.9
+"ENSMUSG00000000002","FakeB","1002",1,1,0,0,1,1,0,1,1
+"ENSMUSG00000000003","Fak
