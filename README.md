@@ -12,8 +12,8 @@ Space biology data is scattered across missions, agencies and labs. It is small-
 
 Two lines of work set up the gap this repo targets:
 
-- **The compute layer is proven.** NASA's FLUID work ran federated learning between Earth and the International Space Station (Casaletto et al., 2025), built on OpenFL with file-based "shim" relays for intermittent links.
-- **The coordination layer isn't.** Recent work on AI-ready space life-sciences data proposes knowledge graphs as the semantic layer, agentic orchestration over MCP servers, and federated learning, but notes that governance and orchestration for a multi-agency or commercial federation have yet to be built.
+- **Federated compute has been demonstrated.** NASA's FLUID work ran federated learning between Earth and the International Space Station (Casaletto et al., 2025), built on OpenFL with file-based "shim" relays for intermittent links.
+- **Coordination and governance are still open.** Recent work on AI-ready space life-sciences data proposes knowledge graphs as the semantic layer, agentic orchestration over MCP servers, and federated learning, but notes that governance and orchestration for a multi-agency or commercial federation have yet to be built.
 
 Existing knowledge-graph agent tools (e.g., `mcp-genelab`) query open, centralized graphs. This project asks what an agent needs to do when the data must stay where it is: harmonize each site to a shared vocabulary, check what each site allows, run and monitor federated jobs, and explain the results with citations back to the graph.
 
@@ -123,13 +123,20 @@ uv run ruff check .          # lint
 
 Copy `.env.example` to `.env` (gitignored) for any API keys. All external API calls are cached.
 
-## Conventions
+## Design principles
 
-- **Grounding is the product.** A claim counts as supported only if the ID it cites appeared in the agent's own tool results for that trace. IDs are never fabricated; mocks use obviously fake ones.
-- **No label leakage.** Labels never become features, graph edges or prompt text. Folds are fixed and shared; nothing is tuned on test data.
-- **Contracts first.** Interfaces are defined in `CONTRACTS.md`, with mocks, before real data arrives.
-- **IDs as CURIEs** (`UBERON:`, `CL:`, `MONDO:`, `HP:`, `NCBIGene:`). Expression data is harmonized to NCBI Gene IDs, matching the KG; gene IDs are never joined on symbols across datasets.
-- **Honest reporting.** Report it when a model doesn't beat a baseline, and report nulls as nulls.
+- **Grounded claims.** The agent counts a claim as supported only if every ID it cites appeared in
+  that trace's own tool results. Mock data uses obviously fake IDs, so a fabricated ID can't pass
+  as a real one.
+- **No label leakage.** Labels are kept out of features, graph edges and prompt text.
+  Cross-validation folds are fixed and shared across settings, and nothing is tuned on test data.
+- **Contracts before data.** Interfaces are specified in `CONTRACTS.md`, with mocks, before real
+  data is wired in.
+- **Stable identifiers.** Ontology terms are written as CURIEs (`UBERON:`, `CL:`, `MONDO:`, `HP:`,
+  `NCBIGene:`). Expression data is harmonized to NCBI Gene IDs to match the KG, and genes are
+  never matched across datasets by symbol.
+- **Results reported as found.** Results are reported whether or not a model beats its baseline,
+  and nulls are reported as nulls.
 
 ## Limitations and scope
 
