@@ -1,7 +1,5 @@
 """Which processed files a study publishes, and what their headers say (WS-06).
 
-AI-drafted (Claude, WS-06).
-
 GeneLab's bulk RNA-seq pipeline (GL-DPPD-7101; github.com/nasa/GeneLab_Data_Processing) publishes,
 per study, under the file category ``GeneLab Processed RNA-Seq Files``:
 

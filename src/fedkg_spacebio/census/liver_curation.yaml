@@ -6,7 +6,8 @@
 # `study protocol description`), read 2026-11-12. `evidence` quotes the sentence verbatim;
 # `confidence: stated` means the sentence says so, `inferred` means it follows from the sentence
 # but doesn't say it outright. Control arms (ground, vivarium, basal) are on Earth by definition.
-# Curated by Claude (WS-06); check before relying on it.
+# `published` means the study's own paper says so (source given). Curated in
+# WS-06 (OSD-137 confirmed in WS-07); check before relying on it.
 
 OSD-47:
   flight_euthanasia_location: ISS
@@ -18,9 +19,11 @@ OSD-48:
   evidence: "The flight group mice were euthanized by ISS crew with Euthasol injection followed by cervical dislocation."
 OSD-137:
   flight_euthanasia_location: ISS
-  confidence: inferred
-  evidence: "At the end of the mission, spaceflight and ground controls had blood collected, were euthanized and one hindlimb removed and whole carcasses were stored at -80 C until BSP (Biospecimen Sharing Program) dissection on earth."
-  note: "Carcasses frozen and dissected later 'on earth' implies on-orbit euthanasia (RR-3 was an ISS-terminal mission); the sentence doesn't name the ISS."
+  confidence: published
+  evidence: "Notably, these animals were sacrificed on-orbit and exposed to varying spaceflight durations (i.e. 21, 37, and 42 days vs 13 days for the Shuttle mice)."
+  evidence_source: "Beheshti et al. 2019, Sci Rep 9:19195, doi:10.1038/s41598-019-55869-2 (PMC6915713), abstract; OSD-137's study publication. The three datasets are RR-1 (C57BL/6) and RR-3 (BALB/c, 42 days). Read 2026-11-12 (WS-07)."
+  osdr_text: "At the end of the mission, spaceflight and ground controls had blood collected, were euthanized and one hindlimb removed and whole carcasses were stored at -80 C until BSP (Biospecimen Sharing Program) dissection on earth."
+  note: "WS-06 inferred ISS from the OSDR sentence (which doesn't name the ISS); WS-07 confirmed it from the publication."
 OSD-168:
   flight_euthanasia_location: ISS
   confidence: stated

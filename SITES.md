@@ -20,7 +20,7 @@ Ensembl 112, GL-DPPD-7101-G).
 | Site ID | Basis | OSD accessions | Tissue | n flight | n ground | Flight euthanized | Platform | Notes |
 |---|---|---|---|---|---|---|---|---|
 | SpaceX-4 | Mission (RR-1) | OSD-47, OSD-48 | liver (`UBERON:0002107`) | 3 + 5 | 3 + 5 | ISS | Illumina HiSeq 3000 (OSD-47) | Two different RR-1 cohorts, no shared animals. OSD-47: C57BL/6NTac, 8 months, 21–22 d. OSD-48: C57BL/6J, 16 weeks, 37 d; use its `Carcass` comparison (its `Upon euthanasia` one has 2 per arm). |
-| SpaceX-8 | Mission (RR-3) | OSD-137 | liver (`UBERON:0002107`) | 6 | 6 | ISS (inferred) | Illumina HiSeq 4000 | BALB/c, 12 weeks, 39–41 d. |
+| SpaceX-8 | Mission (RR-3) | OSD-137 | liver (`UBERON:0002107`) | 6 | 6 | ISS (confirmed, published: Beheshti et al. 2019, *Sci Rep* 9:19195) | Illumina HiSeq 4000 | BALB/c, 12 weeks, 39–41 d. |
 | SpaceX-13 | Mission (RR-6) | OSD-245 | liver (`UBERON:0002107`) | 10 (LAR) / 10 (ISS-T) | 9 (LAR) / 10 (ISS-T) | Earth (LAR) **and** ISS (ISS-T), separate animals | Illumina NovaSeq 6000 | C57BL/6NTac, 36 weeks. Strict comparison: LAR ~30 d. ISS-T ~60 d passes only the location-aware rule. |
 | SpaceX-16 | Mission (RRRM-1 / RR-8) | OSD-379 | liver left lateral lobe (`UBERON:0006727`) | 8 (LAR, 10–12 wk) / 10 (ISS-T, 10–12 wk) | 8 / 10 | Earth (LAR) **and** ISS (ISS-T), separate animals | Illumina NovaSeq | BALB/cAnNTac; also a 32-week age group (LAR 7 / 7, ISS-T 10 / 10). Pick one age group per analysis or model age. |
 | SpaceX-21 | Mission (RR-23) | OSD-463 | liver left lateral lobe (`UBERON:0006727`) | 9 | 9 | Earth (LAR) | Illumina | C57BL/6J, **male** (the only male passing site), 38 d. 3 animals have technical replicates; use one sample per animal (GeneLab used `techrep1`). |
@@ -54,7 +54,7 @@ spike-in).
    durations within 3 days. The dissection method must still match. Rows matched this way carry
    `location_aware_match = true`; `strict_match` keeps its original meaning, so the strict set stays
    reproducible.
-   - **ISS stratum (4 sites):** SpaceX-4, SpaceX-8 (ISS euthanasia inferred; confirm), SpaceX-13 ISS-T,
+   - **ISS stratum (4 sites):** SpaceX-4, SpaceX-8 (ISS euthanasia confirmed, Beheshti et al. 2019), SpaceX-13 ISS-T,
      SpaceX-16 ISS-T.
    - **Earth stratum (3 sites):** SpaceX-13 LAR, SpaceX-16 LAR, SpaceX-21. No margin: losing one
      site leaves 2.

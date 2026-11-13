@@ -1,7 +1,5 @@
 """Build the liver census from OSDR (+ one cached KG query). WS-06.
 
-AI-drafted (Claude, WS-06).
-
 Run (WSL/Ubuntu, after ``fedkg``)::
 
     uv run python -m fedkg_spacebio.census.build
@@ -105,13 +103,16 @@ def _duration_days(label: str | None) -> float | None:
     return sum(nums) / len(nums) if nums else None
 
 
-def location_aware_strict(row: pd.Series, max_day_gap: float = 3.0) -> bool:
-    """A *proposed* looser rule, for sensitivity only (not D-015).
+def location_aware_match(row: pd.Series, max_day_gap: float = 3.0) -> bool:
+    """The location-aware flight contrast (D-020; amends D-015 for the ISS/Earth strata).
 
-    Strict, or the only differences are those an ISS-terminal design forces: flight euthanized
-    ``On ISS`` vs control ``On Earth``, and durations within ``max_day_gap`` days (ground controls
-    run on a few days' offset). This treats OSD-245/379 ISS-T arms the way RR-1/RR-3 are already
-    treated, where location isn't a recorded factor.
+    Written to the census as ``location_aware_match`` (was ``strict_location_aware`` in WS-06,
+    when the rule was still a proposal). ``strict_match`` keeps its D-015 meaning.
+
+    True if the pair is strict, or the only differences are those an ISS-terminal design forces:
+    flight euthanized ``On ISS`` vs control ``On Earth``, and durations within ``max_day_gap``
+    days (ground controls run on a few days' offset). This treats OSD-245/379 ISS-T arms the way
+    RR-1/RR-3 are already treated, where location isn't a recorded factor.
     """
     if row["strict_match"]:
         return True
@@ -317,7 +318,7 @@ def build(workdir: Path | None = None, offline: bool = False) -> dict:
         if c in extra:
             comps[c] = comps[c].where(comps[c].notna(), extra.pop(c))
     census = pd.concat([comps, extra], axis=1)
-    census["strict_location_aware"] = census.apply(location_aware_strict, axis=1)
+    census["location_aware_match"] = census.apply(location_aware_match, axis=1)
 
     # 6. Sites, independent animals, gate (+ sensitivity).
     sites = gt.assign_sites({osd: studies_df.loc[osd, "mission_ids"] for osd in LIVER_CANDIDATES})
@@ -326,9 +327,9 @@ def build(workdir: Path | None = None, offline: bool = False) -> dict:
     counts_available = {osd: "counts_rsem" in r["files"] for osd, r in file_recs.items()}
     gate_table, verdict = gt.assess_gate(census, sites, counts_available)
     sens = gt.sensitivity(census, sites, counts_available,
-                          strict_columns=("strict_match", "strict_location_aware"))
+                          strict_columns=("strict_match", "location_aware_match"))
     strata_table = gt.strata(census, sites, counts_available,
-                             strict_columns=("strict_match", "strict_location_aware"))
+                             strict_columns=("strict_match", "location_aware_match"))
 
     # 7. Study table for the docs.
     study_rows = []

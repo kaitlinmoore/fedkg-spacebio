@@ -1,7 +1,5 @@
 """Do the same animals, or the same sequencing libraries, appear in more than one study? (WS-06)
 
-AI-drafted (Claude, WS-06).
-
 Why it matters: if one mouse is counted in two studies, a meta-analysis counts its evidence twice
 and leave-one-site-out can leak it from a held-out site into training. So we check two different
 things, independently, and report both.

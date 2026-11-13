@@ -1,7 +1,5 @@
 """Turn OSDR's bulk sample query into one tidy row per RNA-seq sample (WS-06).
 
-AI-drafted (Claude, WS-06).
-
 Input is the CSV from ``OsdrClient.query_samples`` with these field prefixes requested (see
 ``SAMPLE_FIELDS``): ``study.source name``, ``study.factor value``, ``study.characteristics`` and
 ``study.parameter value``. OSDR returns one column per field that exists in *any* requested

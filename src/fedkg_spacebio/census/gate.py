@@ -1,7 +1,5 @@
 """Site assignment and the D-016 gate assessment (WS-06). Proposals, not decisions.
 
-AI-drafted (Claude, WS-06).
-
 Site rule (proposed, following D-014)
 -------------------------------------
 - A study linked to exactly one mission belongs to that mission's site.

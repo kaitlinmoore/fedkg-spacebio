@@ -3,7 +3,7 @@
 **Status:** findings from OSDR on 2026-11-12. The gate assessment and site mapping below were written
 as *proposals*. **They were accepted on 2026-11-12, with additions;** the decided version is in
 [`SITES.md`](../SITES.md) (ISS/Earth strata with a location-aware flight contrast, REML +
-Hartung–Knapp pooling, and age and study covariates). AI-drafted (Claude Code, WS-06); every
+Hartung–Knapp pooling, and age and study covariates). Every
 number below comes from the build outputs listed under *How to rebuild*.
 
 Scope: mouse liver RNA-seq, flight vs. control, for the nine candidate studies the GeneLab KG

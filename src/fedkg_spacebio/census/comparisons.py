@@ -1,7 +1,5 @@
 """Flight-vs-control comparisons from OSDR sample groups, and their join to the KG (WS-06).
 
-AI-drafted (Claude, WS-06).
-
 From samples to comparisons
 ---------------------------
 1. **Groups.** Within one OSDR assay, samples with identical factor values form a group (see

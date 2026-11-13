@@ -1,8 +1,5 @@
 """A small, cached, rate-limited client for NASA OSDR (WS-06).
 
-AI-drafted (Claude, WS-06) at Kaitlin's request. Read this module top to bottom; it is meant to be
-rebuildable from scratch.
-
 What it talks to (verified live from WSL on 2026-11-12)
 -------------------------------------------------------
 - **Biological Data API v2**, ``https://visualization.osdr.nasa.gov/biodata/api/v2/``:
