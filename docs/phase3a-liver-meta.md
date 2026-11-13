@@ -41,7 +41,7 @@ README's limitations).
 - **SpaceX-8's ISS euthanasia is confirmed** by the study's own paper (Beheshti et al. 2019,
   *Sci Rep* 9:19195: "these animals were sacrificed on-orbit"). It stays in the ISS stratum; an
   ISS-without-SpaceX-8 variant is still reported as a leave-one-out.
-- Each client fits **only its own flight and ground samples** (Kaitlin, WS-07), so a mission's
+- Each client fits **only its own flight and ground samples** (D-023), so a mission's
   ISS and Earth clients share no data or dispersion estimates. No sample or animal is in two
   clients (checked when manifests are built).
 - Counts are GeneLab's RSEM unnormalized counts, rounded half-to-even (4–7% of cells change,
