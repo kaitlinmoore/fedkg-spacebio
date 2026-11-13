@@ -17,12 +17,15 @@ dependencies = [
     # NVIDIA FLARE: Job Recipe API + FL simulator. Pinned to the 2.9 line (see DECISIONS Q-8:
     # 2.9 removed the file-based pipe that 2.8.x still has).
     "nvflare[sklearn]>=2.9,<2.10",
+    "pydeseq2>=0.5.4",
+    "matplotlib>=3.11.2",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8",
     "ruff",
+    "statsmodels>=0.15.0",
 ]
 
 [build-system]

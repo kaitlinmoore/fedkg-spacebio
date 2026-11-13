@@ -16,7 +16,7 @@ import pandas as pd
 import pytest
 
 from fedkg_spacebio.census import comparisons as cmp
-from fedkg_spacebio.census.build import location_aware_strict
+from fedkg_spacebio.census.build import location_aware_match
 from fedkg_spacebio.census.samples import normalize_label, normalize_source, parse_samples
 
 FIX = Path(__file__).parent / "fixtures" / "census"
@@ -77,12 +77,12 @@ def test_duration_and_location_differences_fail_strict(comps):
 
 def test_location_aware_rule_accepts_only_iss_terminal_differences(comps):
     row = _one(comps, osd_id="OSD-FAKE-2").copy()
-    assert location_aware_strict(row)  # On ISS vs On Earth, 30 vs 32 days
+    assert location_aware_match(row)  # On ISS vs On Earth, 30 vs 32 days
     row["control_factors"] = {**row["control_factors"], "duration": "45 day"}
-    assert not location_aware_strict(row)  # 15-day gap is a different design
+    assert not location_aware_match(row)  # 15-day gap is a different design
     confounded = _one(comps, osd_id="OSD-FAKE-1",
                       factors_control=["Ground Control", "Upon euthanasia"])
-    assert not location_aware_strict(confounded)
+    assert not location_aware_match(confounded)
 
 
 def test_label_matching_handles_kg_truncation():

@@ -1,6 +1,5 @@
-"""Hand-written FedAvg aggregation (owned core #3).
+"""FedAvg aggregation in plain numpy, with a line-by-line walkthrough in the comments.
 
-AI-drafted (Claude, WS-02) at Kaitlin's request, with a line-by-line walkthrough in the comments.
 It is checked against NVIDIA FLARE's built-in FedAvg in ``jobs/fedavg_check/``.
 
 The formula

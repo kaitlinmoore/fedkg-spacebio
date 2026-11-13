@@ -1,0 +1,52 @@
+{
+ "client": "SITE-C",
+ "site": "FAKE-MISSION-2",
+ "stratum": "earth",
+ "design": "~ condition",
+ "contrast": [
+  "condition",
+  "flight",
+  "ground"
+ ],
+ "counts_variant": "standard",
+ "studies": [
+  "OSD-FAKE-2"
+ ],
+ "sources": [
+  {
+   "osd_id": "OSD-FAKE-2",
+   "counts_file": "OSD-FAKE-2/GLDS-FAKE-2_rna_seq_RSEM_Unnormalized_Counts_GLbulkRNAseq.csv",
+   "samples": [
+    {
+     "sample": "C_FLT_1",
+     "animal": "OSD-FAKE-2:CF1",
+     "arm": "flight"
+    },
+    {
+     "sample": "C_FLT_2",
+     "animal": "OSD-FAKE-2:CF2",
+     "arm": "flight"
+    },
+    {
+     "sample": "C_GC_1",
+     "animal": "OSD-FAKE-2:CG1",
+     "arm": "ground"
+    },
+    {
+     "sample": "C_GC_2",
+     "animal": "OSD-FAKE-2:CG2",
+     "arm": "ground"
+    }
+   ]
+  }
+ ],
+ "census_rows": [
+  {
+   "osd_id": "OSD-FAKE-2",
+   "comparison_id": "OSD-FAKE-2-00000000000000000000000000000000",
+   "genelab_contrast": "(Space Flight)v(Ground Control)"
+  }
+ ],
+ "n_flight": 2,
+ "n_ground": 2
+}

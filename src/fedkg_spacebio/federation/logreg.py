@@ -1,6 +1,6 @@
 """Numpy logistic regression and the in-process FedAvg protocol used by the FedAvg check.
 
-AI-drafted (Claude, WS-02). The FLARE client (``jobs/fedavg_check/client.py``) and the in-process
+The FLARE client (``jobs/fedavg_check/client.py``) and the in-process
 reference (``jobs/fedavg_check/reference.py``) both call ``local_train`` from here. The local
 training is literally the same code on both paths, so any difference between the FLARE result
 and the reference has to come from aggregation or transport.

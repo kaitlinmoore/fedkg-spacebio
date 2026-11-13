@@ -1,6 +1,6 @@
 """Deterministic synthetic binary-classification data split across 3 simulated sites.
 
-AI-drafted (Claude, WS-02). This is a test bed for checking FedAvg against FLARE. It is **not**
+This is a test bed for checking FedAvg against FLARE. It is **not**
 real data and not a model of OSDR. Labels are just 0/1 here; in the project they would be
 flight vs. ground.
 

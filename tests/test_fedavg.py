@@ -1,4 +1,4 @@
-"""Tests for the hand-written FedAvg (owned core #3) and the seams around it.
+"""Tests for our numpy FedAvg and the seams around it.
 
 We test our own code: fedavg(), the synthetic sites, and the in-process protocol. FLARE's
 internals aren't tested here. The optional slow test runs the real FLARE job end to end and
