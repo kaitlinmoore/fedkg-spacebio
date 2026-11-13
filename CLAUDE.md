@@ -15,8 +15,17 @@ layer on FLARE for intermittent "orbital" links.
   - `reference/RESOURCES.md`: papers, data, KGs, MCP servers, FL frameworks
   - `reference/OUTLINE.md`: phased plan and concerns
   - `reference/DECISIONS.md`: decision log and open questions. Check it before proposing
-    anything that touches a recorded decision. When Kaitlin makes a decision, add a dated
-    entry (newest first); to reverse one, add a superseding entry rather than editing the old one.
+    anything that touches a recorded decision. When Kaitlin makes a decision in the executive
+    chat, add a dated entry (newest first); to reverse one, add a superseding entry rather than
+    editing the old one.
+  - `reference/WORKSTREAMS.md` and `reference/handoffs/`: how work is split. **If you were started
+    for a specific workstream, read its handoff first, stay inside its scope, propose (don't record)
+    decisions, and finish by writing `handoffs/WS-NN_return.md` and updating the workstream's row.**
+    Only the executive chat, with Kaitlin, writes to `DECISIONS.md`.
+  - `reference/learning/`: Kaitlin's learning notes. When a session teaches something
+    (a walkthrough, an example run, a derivation), write it here as a file, with exact commands to
+    rebuild any throwaway environment. Don't leave it only in the conversation. Polished pieces
+    can be promoted to `docs/`.
   - `reference/literature/`: papers (PDFs). **Start from `reference/literature/INDEX.md`.**
     Don't open a PDF unless the index lacks a detail you need; if you do open one, add that
     detail to the paper's entry. If a PDF has no entry yet, read it once and add one using the
@@ -70,10 +79,12 @@ layer on FLARE for intermittent "orbital" links.
 - IDs are CURIEs: `UBERON:`, `CL:`, `MONDO:`, `HP:`, `NCBIGene:` / `ENSEMBL:`, plus OSD accessions.
 - Detect and record each dataset's gene-ID namespace and annotation version (GRCm39 vs.
   GRCm38/mm10) from metadata. Do not assume.
-- Harmonize to one gene namespace (prefer stable Ensembl IDs) before merging. Never join on gene
+- Harmonize to one gene namespace, **NCBI Gene (Entrez)**, before merging (DECISIONS D-012: every
+  KG gene node and ortholog edge uses it). Map Ensembl-indexed OSDR matrices once and log the drop rate. Never join on gene
   SYMBOL across datasets.
 - Log the drop rate at every mapping step (gene IDs, orthologs, ontology terms). Silent loss is a bug.
-- Pin knowledge-graph versions. mcp-genelab = SPOKE-GeneLab v0.3.1+20260311 (no OSDR data after
+- Pin knowledge-graph versions. mcp-genelab is **assumed** to be SPOKE-GeneLab v0.3.1+20260311 (the
+  version isn't exposed live; see `docs/kg-schema.md`) (no OSDR data after
   2026-03-11). Keep the census and the KG version aligned. Pin a downloaded Monarch release.
 
 ## Federation rules
@@ -81,6 +92,9 @@ layer on FLARE for intermittent "orbital" links.
   summaries, never raw site data. Keep that boundary visible in the code structure.
 - The sites are **simulated** over public OSDR data. Frame it as a testbed with real
   between-study heterogeneity; never claim it solves an actual privacy problem.
+- **FedAvg weighting (D-017):** weight sites by sample count n_k. Every FLARE client must set
+  `FLMetaKey.NUM_STEPS_CURRENT_ROUND = n_k`. FLARE 2.9.1 silently treats a missing or invalid
+  value as 1.0 (equal weighting). Equal or custom weights only via an explicit job-spec field.
 - Federated learning is not automatically private. Any DP or secure-aggregation result is
   reported with its accuracy cost.
 - FLUID-style work (phase 3b) adapts the design from Casaletto et al., 2025, and is credited as such.
@@ -116,7 +130,8 @@ layer on FLARE for intermittent "orbital" links.
   for some tools ("Operation not permitted"). Kaitlin's `fedkg` shell function (in `~/.bashrc`) cds
   to the repo and sets: `UV_PROJECT_ENVIRONMENT=$HOME/.venvs/fedkg-spacebio`,
   `PYTEST_ADDOPTS="-o cache_dir=$HOME/.cache/fedkg/pytest"`, `RUFF_CACHE_DIR=$HOME/.cache/fedkg/ruff`,
-  and `FEDKG_WORKDIR=$HOME/fedkg-work`. Never create `.venv` in the repo from WSL. Code that writes
+  `FEDKG_WORKDIR=$HOME/fedkg-work` and `NVFLARE_SIMULATOR_WORKSPACE_ROOT=$HOME/fedkg-work/flare-sim`
+  (FLARE's `SimEnv` otherwise defaults to `/tmp/nvflare/simulation`). Never create `.venv` in the repo from WSL. Code that writes
   run outputs (FLARE simulator workspaces, caches, results) must default to `$FEDKG_WORKDIR`, not a
   path inside the repo.
 - **uv for everything Python:** `uv add`, `uv sync`, `uv run …`, `uvx …`, `uv pip install …`.
@@ -135,7 +150,8 @@ layer on FLARE for intermittent "orbital" links.
 ```bash
 # WSL/Ubuntu: run `fedkg` first (cds to the repo; sets venv, cache and work-dir paths)
 uv sync                 # install locked deps into ~/.venvs/fedkg-spacebio
-uv run pytest           # tests (synthetic fixtures only)
+uv run pytest           # fast tests (synthetic fixtures only)
+uv run pytest -m slow   # FLARE simulator end-to-end tests (skipped by default; D-018)
 uv run ruff check .     # lint
 uv add <pkg>            # add a dependency (updates pyproject.toml + uv.lock)
 uv run python jobs/<job>.py   # run a FLARE job in the simulator

@@ -60,7 +60,7 @@ All data and graph releases are downloaded locally and **never committed**. Vers
 |---|---|---|---|
 | NASA Open Science Data Repository (OSDR), GeneLab | Spaceflight and ground-control omics + metadata | https://osdr.nasa.gov/ · Biological Data API: https://visualization.osdr.nasa.gov/biodata/api/ | TODO |
 | SPOKE-GeneLab | Links OSDR experiments to a biomedical KG; human orthologs; CL/UBERON mapping | https://github.com/BaranziniLab/spoke_genelab | TODO |
-| mcp-genelab | Natural-language → Cypher over the GeneLab KG | Hosted: `https://visualization.osdr.nasa.gov/kg/mcp` · https://github.com/sbl-sdsc/mcp-genelab | KG v0.3.1+20260311 (no OSDR data after 2026-03-11) |
+| mcp-genelab | Natural-language → Cypher over the GeneLab KG | Hosted: `https://visualization.osdr.nasa.gov/kg/mcp` · https://github.com/sbl-sdsc/mcp-genelab | Assumed KG v0.3.1+20260311 (not exposed live; see [`docs/kg-schema.md`](docs/kg-schema.md)) |
 | Monarch KG | Cross-species genes–phenotypes–diseases | https://data.monarchinitiative.org/monarch-kg | TODO (pinned release) |
 | PrimeKG (optional) | Disease and drug context, shares Mondo IDs with Monarch | https://github.com/mims-harvard/PrimeKG | TODO |
 
@@ -122,7 +122,7 @@ Copy `.env.example` to `.env` (gitignored) for any API keys. All external API ca
 - **Grounding is the product.** A claim counts as supported only if the ID it cites appeared in the agent's own tool results for that trace. IDs are never fabricated; mocks use obviously fake ones.
 - **No label leakage.** Labels never become features, graph edges or prompt text. Folds are fixed and shared; nothing is tuned on test data.
 - **Contracts first.** Interfaces are defined in `CONTRACTS.md`, with mocks, before real data arrives.
-- **IDs as CURIEs** (`UBERON:`, `CL:`, `MONDO:`, `HP:`, `NCBIGene:`/`ENSEMBL:`). Gene IDs are never joined on symbols across datasets.
+- **IDs as CURIEs** (`UBERON:`, `CL:`, `MONDO:`, `HP:`, `NCBIGene:`). Expression data is harmonized to NCBI Gene IDs, matching the KG; gene IDs are never joined on symbols across datasets.
 - **Honest reporting.** Report it when a model doesn't beat a baseline, and report nulls as nulls.
 
 ## Limitations and scope
