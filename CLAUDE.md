@@ -112,20 +112,32 @@ layer on FLARE for intermittent "orbital" links.
 - **Run Python and FLARE in WSL2, Ubuntu 24.04.** FLARE supports Linux/macOS, not native Windows.
 - **Git runs from Git Bash only.** Never run git from inside WSL on this repo; mixing the two
   causes line-ending and file-mode noise.
+- **Nothing generated is written into the repo from WSL.** Writes to `/mnt/c/...` from WSL fail
+  for some tools ("Operation not permitted"). Kaitlin's `fedkg` shell function (in `~/.bashrc`) cds
+  to the repo and sets: `UV_PROJECT_ENVIRONMENT=$HOME/.venvs/fedkg-spacebio`,
+  `PYTEST_ADDOPTS="-o cache_dir=$HOME/.cache/fedkg/pytest"`, `RUFF_CACHE_DIR=$HOME/.cache/fedkg/ruff`,
+  and `FEDKG_WORKDIR=$HOME/fedkg-work`. Never create `.venv` in the repo from WSL. Code that writes
+  run outputs (FLARE simulator workspaces, caches, results) must default to `$FEDKG_WORKDIR`, not a
+  path inside the repo.
 - **uv for everything Python:** `uv add`, `uv sync`, `uv run …`, `uvx …`, `uv pip install …`.
   Never plain `pip`. Python version and deps are pinned in `pyproject.toml` + `uv.lock` (committed).
-- **NVIDIA FLARE 2.8.x.** Use the Job Recipe API and the FL simulator. The older
-  Executor/ModelLearner examples were removed in 2.7.2; don't copy them from old tutorials.
+- **NVIDIA FLARE 2.9.x** (`nvflare[sklearn]`, pinned `>=2.9,<2.10`). Use the Job Recipe API
+  (`nvflare.recipe`) and the FL simulator. The older Executor/ModelLearner examples were removed in
+  2.7.2, and 2.9 removed `nvflare.fuel.utils.pipe` (including `FilePipe`); don't copy either from
+  old tutorials. Check examples against the installed version.
+- **Python 3.12** (`.python-version`); src layout, package `fedkg_spacebio`.
 - **Network:** Claude's cloud workspace cannot reach OSDR, the KG endpoints or Monarch. Scaffold
   and test against mocks there; real data pulls and KG calls run locally in WSL (or through the
   mcp-genelab connector).
 - When giving shell commands, say which shell they're for (Git Bash, WSL/Ubuntu, or PowerShell).
 
 ## Commands
-> TODO: fill in once `pyproject.toml` and the CLI exist.
-
 ```bash
-# WSL/Ubuntu, from the repo root
-uv sync
-uv run pytest
+# WSL/Ubuntu: run `fedkg` first (cds to the repo; sets venv, cache and work-dir paths)
+uv sync                 # install locked deps into ~/.venvs/fedkg-spacebio
+uv run pytest           # tests (synthetic fixtures only)
+uv run ruff check .     # lint
+uv add <pkg>            # add a dependency (updates pyproject.toml + uv.lock)
+uv run python jobs/<job>.py   # run a FLARE job in the simulator
 ```
+Git (Git Bash only): commit `pyproject.toml` and `uv.lock` together whenever deps change.

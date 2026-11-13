@@ -1,0 +1,15 @@
+# Normalize line endings: LF in the repo and in working copies, so Git Bash (Windows)
+# and WSL (Linux) see identical files. See reference DECISIONS D-006.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.parquet binary
+*.duckdb binary

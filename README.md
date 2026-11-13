@@ -71,12 +71,12 @@ Each source has its own license and terms of use, which apply to the data indepe
 ## Tech stack
 
 - Python, managed with [uv](https://docs.astral.sh/uv/)
-- [NVIDIA FLARE](https://nvflare.readthedocs.io/) 2.8.x (Job Recipe API, FL simulator)
+- [NVIDIA FLARE](https://nvflare.readthedocs.io/) 2.9.x (Job Recipe API, FL simulator)
 - scikit-learn, XGBoost; PyTorch / PyTorch Geometric for the GNN stretch goal
 - Model Context Protocol (MCP) servers for knowledge-graph access
 - pandas, pytest
 
-## Planned repository layout
+## Repository layout
 
 ```
 fedkg-spacebio/
@@ -86,6 +86,7 @@ fedkg-spacebio/
 │   ├── census/           # OSDR enumeration
 │   ├── harmonize/        # ontology + gene-ID mapping, ortholog mapping, drop-rate logs
 │   ├── sites/            # site registry, manifests, policies
+│   ├── evaluation/       # leave-one-site-out splits, leakage guard, metrics
 │   ├── federation/       # FLARE job recipes, aggregation, intermittent-link shim (stretch)
 │   ├── agent/            # tools, planner, grounding checker, trace logging
 │   └── policy/           # policy-as-code evaluation
@@ -98,14 +99,23 @@ fedkg-spacebio/
 
 ## Setup
 
-> **TODO — finalize once the environment is settled** (native Windows vs. WSL2; NVIDIA FLARE primarily targets Linux and macOS).
+NVIDIA FLARE supports Linux and macOS, not native Windows. On Windows, run the project inside
+**WSL2 (Ubuntu)**. Python 3.12 (pinned in `.python-version`; uv downloads it) and
+`nvflare[sklearn]` 2.9.x are set in `pyproject.toml` and locked in `uv.lock`.
 
 ```bash
-uv sync                      # once pyproject.toml + uv.lock are committed
+# inside WSL2 (Ubuntu), from the repo root
+curl -LsSf https://astral.sh/uv/install.sh | sh   # one-time: install uv
+# Keep the venv, tool caches and run outputs on the Linux filesystem: some writes to /mnt/c fail under WSL.
+export UV_PROJECT_ENVIRONMENT=$HOME/.venvs/fedkg-spacebio
+export PYTEST_ADDOPTS="-o cache_dir=$HOME/.cache/fedkg/pytest" RUFF_CACHE_DIR=$HOME/.cache/fedkg/ruff
+export FEDKG_WORKDIR=$HOME/fedkg-work    # FLARE simulator workspaces and run outputs
+uv sync                      # creates the venv and installs locked dependencies
 uv run pytest                # tests run against synthetic fixtures, no data needed
+uv run ruff check .          # lint
 ```
 
-Secrets (API keys, if any) go in a local `.env`, which is gitignored. All external API calls are cached.
+Copy `.env.example` to `.env` (gitignored) for any API keys. All external API calls are cached.
 
 ## Conventions
 

@@ -1,1 +1,54 @@
+# --- Local-only planning docs and papers (never commit; DECISIONS D-007) ---
 reference/
+
+# --- Data, models, results: never commit raw or derived data ---
+data/
+models/
+results/
+*.parquet
+*.feather
+*.h5
+*.duckdb
+*.sqlite
+# Committed synthetic fixtures live under tests/fixtures/ and are deliberately kept.
+!tests/fixtures/
+!tests/fixtures/**
+
+# --- External-call cache ---
+.cache/
+
+# --- FLARE simulator / POC workspaces ---
+workspaces/
+/tmp/
+*.log
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# --- uv / virtualenv (uv.lock IS committed) ---
+.venv/
+
+# --- Testing / tooling ---
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
