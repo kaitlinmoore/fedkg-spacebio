@@ -4,6 +4,11 @@ _WS-07, run 2026-11-12/13. Methods summary in [`methodology.md`](methodology.md)
 interfaces in [`CONTRACTS.md`](../CONTRACTS.md) §3–4; sites and strata in [`SITES.md`](../SITES.md)
 (D-020) and [`census-liver.md`](census-liver.md)._
 
+**Follow-up (WS-08).** The headline method is being re-examined: an empirical-Bayes comparison
+(simulation calibrated to these data, plus the real data) and the time-of-day checks (Q-11) are
+in [`phase3a-method-comparison.md`](phase3a-method-comparison.md). The headline below stands until
+a new decision replaces it.
+
 **Question.** For mouse liver, flight vs ground control, which genes change in the same direction
 across missions, analyzed separately for mice euthanized on the ISS and mice returned alive and
 euthanized on Earth? Each mission is a simulated site that runs its own DE and shares only per-gene

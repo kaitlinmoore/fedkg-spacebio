@@ -268,6 +268,43 @@ same summaries by construction, so Check 1 is a wiring check, not a benefit. RE 
 heterogeneity flag need per-site estimates at the server, so they are not private. FE alone
 would need only Σw·y and Σw per gene.
 
+### 5.5 Phase 3a method comparison (WS-08)
+Full write-up: [`phase3a-method-comparison.md`](phase3a-method-comparison.md). Proposed there; the
+headline decision is pending.
+
+**Two questions.** A per-gene hit can mean (A) "changed in these missions" (fixed effect's
+question) or (B) "the mean across missions, the one a new mission would be drawn around, is
+non-zero" (random effects'). Every method is labelled with the question it answers.
+
+**Empirical-Bayes methods (server-side, on the per-site summaries WS-07 already sends).**
+- **V2:** FE estimate with limma's moderation (Smyth 2004 §6.2) of φ = Q/(k−1). Under a
+  multiplicative-heterogeneity model this is an exact scaled-χ² variance, so the conjugate
+  theory holds. It answers A, robust to misestimated SEs.
+- **V3:** a nonparametric prior over τ², fitted across all genes by EM on each gene's restricted
+  likelihood. μ is averaged over each gene's τ² posterior. It answers B.
+- *Rejected:* moderating the HKSJ q (the planned sketch, kept as "V1"). REML's τ̂² absorbs each
+  gene's scatter, so q sits near 1. For Paule–Mandel q = 1 exactly whenever τ̂² > 0 (Röver, Knapp
+  & Friede 2015). The limma fit then returns d₀ = ∞ and the test collapses to the plug-in RE
+  Wald z.
+
+**Calibrated simulation.**
+- Copied from the real data: per-site SE vectors (resampled whole), V3's τ² prior, V2's φ
+  prior, and the effect spread fitted by marginal likelihood.
+- Swept rather than estimated: the τ² scale and the fraction of μ = 0 genes.
+- Alternative generators: raw REML τ̂², multiplicative heterogeneity, noisy SEs (an approximate
+  stress test), and the ≥3-site k pattern.
+- 100 replicates per setting with fixed seeds; every method refits its hyperparameters on every
+  replicate.
+- Scored under both estimands: FDR, power, the call rate on μ = 0 heterogeneous genes, and
+  interval coverage of μ and of the FE-weighted mission mean.
+
+**Time of day (Q-11).**
+- **Audit:** OSDR sample metadata, protocol text and publications, one source per cell.
+- **Enrichment:** liver-cycling genes (Hughes et al. 2009, Table S1) mapped by probe set ID
+  through GEO's GPL1261 annotation, never by symbol. Fisher and Mantel–Haenszel (base-mean
+  deciles) tests, against a background of tested genes measurable on the array.
+- These are diagnostics, not corrections: spaceflight may shift the clock itself.
+
 ## 6. Intermittent links (phase 3b, stretch)
 TODO: shim design adapted from FLUID (Casaletto et al., 2025), loss-of-signal model, aggregation under stragglers.
 

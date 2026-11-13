@@ -47,7 +47,20 @@ uv run python jobs/phase3a_meta/report.py --sensitivity             # cross-run 
 uv run pytest -m slow                                               # synthetic FLARE end to end
 ```
 
-Inputs: `$FEDKG_WORKDIR/census/` (WS-06), count matrices and full DE tables in
+### `phase3a_compare/`: phase 3a method comparison and time-of-day checks (WS-08)
+Not FLARE jobs: every method compared runs at the server on per-site summaries, so these read
+WS-07's saved per-gene tables. See `docs/phase3a-method-comparison.md`.
+
+```bash
+uv run python jobs/phase3a_compare/simulate.py     # calibrated simulation (100 reps, parallel)
+uv run python jobs/phase3a_compare/compare.py      # every method on the real per-gene tables
+uv run python jobs/phase3a_compare/circadian.py    # Q-11 rhythmic-gene enrichment, core clock
+uv run python jobs/phase3a_compare/report.py       # figures and tables
+```
+`time_of_day_audit.yaml` is the curated Q-11 metadata audit. Outputs:
+`$FEDKG_WORKDIR/results/phase3a/method-comparison/`.
+
+Inputs (phase3a_meta): `$FEDKG_WORKDIR/census/` (WS-06), count matrices and full DE tables in
 `$FEDKG_WORKDIR/data/osdr/`, and the GeneLab annotation table in
 `$FEDKG_WORKDIR/data/annotations/`. Outputs: `$FEDKG_WORKDIR/results/phase3a/<stratum>/<counts>/`
 (`flare/`, `central/`, `check3.json`), `$FEDKG_WORKDIR/results/phase3a/check2/` and
