@@ -4,7 +4,8 @@ The interfaces every part of the system agrees on. Defined **before** real data 
 mocks, so census, harmonization, federation, policy and agent work can proceed independently.
 Change a contract here first, then the code and fixtures that depend on it.
 
-> **Status:** §1 (identifiers) and §2 (census, draft) are filled in from WS-01; §3–§8 are skeleton.
+> **Status:** §1 (identifiers) is filled in from WS-01. §2 (census) is filled in from WS-01 and
+> WS-06 (OSDR columns, 2026-11-12). §3–§8 are skeleton.
 
 ## 1. Identifiers
 
@@ -24,9 +25,10 @@ conversion rule says how to make them CURIEs.
 | Organism / taxon | `NCBITaxon:<n>` | `Organism.identifier`, `Study.taxonomy`, `MGene.taxonomy`, bare digits | prefix `NCBITaxon:` |
 | Methylation region | `<chrom>:<start>-<end>` (KG form) | `MethylationRegion.identifier` | none; no `chr` prefix, 1 kb bins |
 
-- **Gene namespace target: Proposed, not decided** (see the WS-01 return note). The KG is
-  NCBIGene-only, so KG joins need NCBIGene. CLAUDE.md currently says to prefer Ensembl. Until
-  Kaitlin decides, store the source namespace on every row and don't convert between them.
+- **Gene namespace target: NCBI Gene (Entrez)** (decided 2026-11-12). The KG is NCBIGene-only.
+  OSDR liver matrices use unversioned `ENSMUSG` IDs (Ensembl 112, GRCm39; see
+  `docs/census-liver.md`). They are mapped to NCBIGene once, with the drop rate logged. Every row
+  also keeps its source namespace.
 - Never join on gene symbols across datasets.
 - Mocks and fixtures use obviously fake IDs: `FAKE:NNNN`, `OSD-FAKE-N`, comparison
   `OSD-FAKE-N-00000000000000000000000000000000`.
@@ -34,39 +36,62 @@ conversion rule says how to make them CURIEs.
 
 ## 2. Census table (`census/`)
 
-**Status: draft columns.** Grain is one row per **flight-vs-control comparison**: one
-KG comparison node in the flight → control direction only (the KG stores both directions;
-see `docs/kg-schema.md`). Columns marked *OSDR* aren't in the KG and need the OSDR Biological
-Data API.
+**Status: filled for liver (WS-06, 2026-11-12).** Built by `fedkg_spacebio.census.build`; written to
+`$FEDKG_WORKDIR/census/liver_census.csv` (list columns as JSON strings). Evidence and numbers:
+`docs/census-liver.md`.
+
+**Grain (changed in WS-06):** one row per **OSDR flight → control group pair** within one OSDR
+assay, built from OSDR sample metadata. The flight → control direction only. Each row carries the
+KG comparison ID when one KG comparison matches it uniquely; otherwise `comparison_id` is null and
+`kg_match` says why. *Was:* one row per KG comparison node. *Why changed:* the KG's labels are
+damaged for some studies (OSD-168, OSD-245 basal), so KG-first rows would silently lose real
+comparisons; OSDR-first rows keep them and expose the join quality.
 
 | Column | Type | Source | Allowed values / notes |
 |---|---|---|---|
-| `osd_id` | str | KG `Study.identifier` | `OSD-<n>` |
-| `comparison_id` | str | KG `Assay.identifier` | `OSD-<n>-<32 hex>` |
-| `osdr_assay_name` | str | KG `Assay.name` | shared by several comparisons |
-| `mission_ids` | list[str] | KG `Mission`←`CONDUCTED_MIcS` | may be empty (93 of 212 studies) or have several entries |
+| `osd_id` | str | OSDR `id.accession` | `OSD-<n>` |
+| `comparison_id` | str \| null | KG `Assay.identifier` | `OSD-<n>-<32 hex>`; null unless `kg_match` is `exact` or `partial` |
+| `kg_match` | str | derived | `exact` · `partial` (KG labels are a subset; still unique) · `ambiguous` (several OSDR pairs fit) · `unmatched` **(new)** |
+| `kg_assay_match` | str \| null | derived | `exact` · `normalized` (case/whitespace) · `only_assay` (one RNA-seq assay each side) **(new)**; KG assay names lag OSDR's |
+| `osdr_assay_name` | str | OSDR `id.assay name` | *was* KG `Assay.name`, which can differ from OSDR's current name |
+| `mission_ids` | list[str] | KG `Mission`←`CONDUCTED_MIcS` | may be empty or have several entries; OSDR `mission.name` agreed for all liver studies |
+| `site` | str \| null | proposed rule | the mission if `mission_ids` has exactly one entry, else null **(new; proposal, see SITES.md)** |
 | `space_program` | list[str] | KG `Mission.space_program` | split the comma-joined KG strings; may be empty |
 | `organism_taxon` | str | KG `Study.taxonomy` | `NCBITaxon:<n>` |
-| `host_strain` | str \| null | raw factors, else *OSDR* | KG `Study.host_strain` is null for all 104 mouse studies |
-| `tissue_uberon` | str | KG `Assay.material_id_1` | must equal `material_id_2` for a row to be valid |
+| `host_strain` | str \| null | *OSDR* `study.characteristics.strain` | `; `-joined if the two arms differ |
+| `tissue_uberon` | str | KG `Assay.material_id_1` | from the matched KG comparison, else the study's single KG tissue term |
 | `tissue_label` | str | KG `Assay.material_name_1` | |
-| `organ_group` | str | ours | roll-up of lateral/sub-region terms (e.g. left kidney → kidney); the mapping table lives in `harmonize/` |
-| `control_type` | str | KG `Assay.factor_space_2` | `Ground Control` · `Vivarium Control` · `Basal Control` |
-| `factors_flight` | list[str] | KG `Assay.factors_1` | raw labels |
-| `factors_control` | list[str] | KG `Assay.factors_2` | raw labels |
-| `strict_match` | bool | derived | true if the non-flight factors are identical on both sides |
-| `technology` | str | KG `Assay.technology` | e.g. `RNA Sequencing (RNA-Seq)` |
-| `de_method` | str | KG `Assay.differential_analysis_method` | KG labels microarrays `DESeq2` too; verify against OSDR |
-| `n_de_edges_kg` | int | derived | KG DE edges stored (adj_p < 0.1 only) |
-| `n_flight`, `n_control` | int | *OSDR* | sample counts per arm |
-| `sex` | str | *OSDR* (sometimes in factors) | `male` · `female` · `mixed` · `unknown` |
-| `gene_id_namespace` | str | *OSDR* | e.g. `ENSEMBL`, `NCBIGene` for the per-sample matrix |
-| `annotation_version` | str | *OSDR* | e.g. `GRCm39`, `GRCm38`; record it, don't assume it |
+| `organ_group` | str | ours | roll-up of lateral/sub-region terms (e.g. liver left lateral lobe → liver) |
+| `control_type` | str | *OSDR* spaceflight factor | `Ground Control` · `Vivarium Control` · `Basal Control` |
+| `factors_flight`, `factors_control` | list[str] | *OSDR* factor values | arm label first, then the other factors sorted by factor name; units without braces (`~60 day`) |
+| `factors_flight_kg`, `factors_control_kg` | list[str] \| null | KG `Assay.factors_1/2` | the raw KG labels of the matched comparison **(new)** |
+| `strict_match` | bool | derived | true if every non-spaceflight factor is identical on both sides (D-015) |
+| `differing_factors` | list[str] | derived | factor names that differ; empty iff `strict_match` **(new)** |
+| `strict_location_aware` | bool | derived | **proposed, sensitivity only:** strict, or differs only by flight `On ISS` vs control `On Earth` and durations ≤ 3 days apart **(new)** |
+| `technology` | str | constant | `RNA Sequencing (RNA-Seq)` |
+| `de_method` | str \| null | KG `Assay.differential_analysis_method` | `DESeq2` for all liver rows, consistent with OSDR's protocol text |
+| `n_de_edges_kg` | int \| null | derived | KG DE edges stored (adj_p < 0.1 only) |
+| `n_flight`, `n_control` | int | *OSDR* | **animals** (unique normalized source names) per arm. *Was:* "sample counts per arm"; changed because one animal can give several samples (spike-in duplicates, technical replicates) |
+| `n_flight_samples`, `n_control_samples` | int | *OSDR* | samples per arm **(new)** |
+| `n_flight_indep`, `n_control_indep` | int | derived | animals not shared with an assigned study at another site **(new)** |
+| `n_flight_in_de`, `n_control_in_de` | int | *OSDR* SampleTable | samples GeneLab's DE used **(new)** |
+| `flight_animals`, `control_animals` | list[str] | *OSDR* | normalized source keys **(new)**; inputs to the overlap check |
+| `sex` | str | *OSDR* `study.characteristics.sex` | `male` · `female` · `mixed` · `unknown` |
+| `euthanasia_location_flight` | str \| null | *OSDR* factor, else curated protocol text | `ISS` · `Earth` **(new)** |
+| `euthanasia_location_flight_source` | str | derived | `OSDR factor` · `curated (stated)` · `curated (inferred)` **(new)** |
+| `euthanasia_location_control` | str | derived | `Earth` for all control arms **(new)** |
+| `counts_file`, `counts_file_rrnarm` | str \| null | *OSDR* file listing | `*_RSEM_Unnormalized_Counts[_rRNArm]_GLbulkRNAseq.csv`; `counts_file` is the one GeneLab's (and the KG's) DE used **(new)** |
+| `de_file` | str \| null | *OSDR* file listing | the standard DE table **(new)** |
+| `genelab_contrast` | str \| null | *OSDR* SampleTable + contrasts | e.g. `(Space Flight)v(Ground Control)` **(new)** |
+| `has_stat` | bool \| null | *OSDR* DE header | `Stat_<genelab_contrast>` present; cross-check only (D-016) **(new)** |
+| `gene_id_namespace` | str | *OSDR* counts matrix | `ENSEMBL` · `NCBIGene` · `SYMBOL` · `mixed`; all liver rows `ENSEMBL` (unversioned) |
+| `annotation_version` | str | *OSDR* protocol text | `<genome build>, Ensembl <release>`, e.g. `GRCm39, Ensembl 112` |
+| `pipeline_version`, `nf_rcp_version` | str | *OSDR* protocol text | e.g. `GL-DPPD-7101-G`, `2.0.2` **(new)** |
 | `kg_version` | str | pinned | `SPOKE-GeneLab v0.3.1+20260311` (assumed; not exposed live) |
-| `access_date` | date | ours | date of the KG/OSDR pull |
+| `access_date` | date | ours | date of the OSDR pull (the KG result is cached with its own date) |
 
-Open: whether rows that fail the strict match (e.g. `uG` vs `1G on Earth`) are kept with
-`strict_match = false` or dropped. Tissue scope and site definition are Q-2.
+Rows failing the strict rule are **kept** with `strict_match = false` (D-015); this resolves the old
+open question. Site definition is D-014; the liver mapping is proposed in `SITES.md`.
 
 ## 3. Site manifest (`sites/`)
 TODO: which studies and samples belong to a site, where its data lives locally, its gene-ID

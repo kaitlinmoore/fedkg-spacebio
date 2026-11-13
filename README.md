@@ -58,13 +58,13 @@ All data and graph releases are downloaded locally and **never committed**. Vers
 
 | Source | Use | Access | Version / date |
 |---|---|---|---|
-| NASA Open Science Data Repository (OSDR), GeneLab | Spaceflight and ground-control omics + metadata | https://osdr.nasa.gov/ · Biological Data API: https://visualization.osdr.nasa.gov/biodata/api/ | TODO |
+| NASA Open Science Data Repository (OSDR), GeneLab | Spaceflight and ground-control omics + metadata | https://osdr.nasa.gov/ · Biological Data API: https://visualization.osdr.nasa.gov/biodata/api/ | Biological Data API v2; liver studies accessed 2026-11-12 (GeneLab processing GL-DPPD-7101-G, GRCm39, Ensembl 112; see [`docs/census-liver.md`](docs/census-liver.md)) |
 | SPOKE-GeneLab | Links OSDR experiments to a biomedical KG; human orthologs; CL/UBERON mapping | https://github.com/BaranziniLab/spoke_genelab | TODO |
 | mcp-genelab | Natural-language → Cypher over the GeneLab KG | Hosted: `https://visualization.osdr.nasa.gov/kg/mcp` · https://github.com/sbl-sdsc/mcp-genelab | Assumed KG v0.3.1+20260311 (not exposed live; see [`docs/kg-schema.md`](docs/kg-schema.md)) |
 | Monarch KG | Cross-species genes–phenotypes–diseases | https://data.monarchinitiative.org/monarch-kg | TODO (pinned release) |
 | PrimeKG (optional) | Disease and drug context, shares Mondo IDs with Monarch | https://github.com/mims-harvard/PrimeKG | TODO |
 
-**Selected OSD datasets and site assignments:** TODO, filled in from the census in `SITES.md`.
+**Selected OSD datasets and site assignments:** liver census done for OSD-47, -48, -137, -168, -173, -245, -379, -463 and -686 ([`docs/census-liver.md`](docs/census-liver.md)); the site mapping in [`SITES.md`](SITES.md) is **proposed**, not decided. Rebuild in WSL with `uv run python -m fedkg_spacebio.census.build`.
 
 Each source has its own license and terms of use, which apply to the data independently of this repository's code license. Check each source before redistributing anything derived from it.
 

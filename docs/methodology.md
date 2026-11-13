@@ -4,7 +4,54 @@ Every choice gets recorded here with the alternatives considered and why this on
 Sections fill in as each phase is built.
 
 ## 1. Census and site design
-TODO
+
+Liver is done (WS-06; numbers in [`census-liver.md`](census-liver.md)). Code:
+`src/fedkg_spacebio/census/`. AI-drafted (Claude Code), with a walkthrough in each module's
+docstring.
+
+**Where the census rows come from.** OSDR's own sample metadata, one bulk `query/samples/` call
+for all candidate studies. The KG is used only to pick candidates and to attach its comparison
+IDs. *Alternative:* start from the KG's comparison nodes (WS-01's approach). *Rejected:* the KG's
+labels are damaged for some studies (OSD-168 lacks spike-in labels on one side; labels are cut at
+`(`; OSD-245's basal duration differs), so KG-first rows silently lose or mislabel comparisons.
+
+**Groups and comparisons.** Samples with identical factor values form a group; every (flight
+group, control group) pair in one assay is a comparison, flight → control only. The strict rule
+(D-015) is "every non-spaceflight factor identical". Non-strict rows are kept, with the factors
+that differ.
+
+**n means animals.** n counts unique OSDR *source names* (ISA-Tab's subject), not samples.
+*Why:* OSD-168 sequences 20 mice twice (±ERCC) and OSD-463 has technical replicates; sample counts
+would inflate n by up to 63%.
+
+**Overlap: two independent checks.**
+- *Animals:* source names normalized (case, punctuation) and equal strain and sex.
+- *Libraries:* identical count vectors, or r > 0.9999 on log1p counts with equal library size
+  (Kaitlin's rule). *Why not r alone:* different mice from one tissue reach r ≈ 0.99. On the real
+  data, the same mouse re-sequenced in a second study reached only 0.96, so r can't find animals
+  either. *Why log1p:* on raw counts, a few very highly expressed liver genes dominate r.
+
+**Which count matrix.** GeneLab publishes DE for both the standard and the rRNA-removed RSEM
+matrix. We use the matrix behind the DE table the KG mirrors (Kaitlin's rule). Two checks decide
+it:
+- each DE table's per-sample block equals its own normalized-count file + 1;
+- OSD-47's KG log2FC values equal the standard table's exactly.
+
+Both point to the **standard** matrix.
+
+**Big files are read partially.** HTTP Range reads take a DE table's header (to find `Stat_`) and a
+few hundred rows (for the pairing check), instead of downloading up to 525 MB per table.
+
+**Gate (proposed).** Counts published + a strict flight-vs-ground comparison with ≥ 3 independent
+animals per arm; ≥ 3 such sites for phase 3a. *Why 3 per arm:* DESeq2's per-gene dispersion
+estimate needs replicates within each arm; at 2 per arm it is mostly the fitted trend. *Why 3
+sites:* random effects and I² need more than one degree of freedom between sites. Sensitivity
+analyses vary the threshold (2–5), the strict rule (strict vs a location-aware variant) and the
+stratum (flight euthanized on the ISS vs on Earth).
+
+**Euthanasia location** is recorded per comparison, from the OSDR factor where it exists and
+otherwise from quoted protocol text (`census/liver_curation.yaml`). Handling it (stratify vs pool)
+is an open proposal; see `census-liver.md`.
 
 ## 2. Harmonization
 TODO: ontology mapping, gene-ID namespace, ortholog mapping, drop-rate accounting, gold-set evaluation.
