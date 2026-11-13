@@ -1,6 +1,6 @@
 """FLARE side of the FedAvg check: logistic regression on 3 synthetic sites with NumpyFedAvgRecipe.
 
-AI-drafted (Claude, WS-02). Run from WSL after ``fedkg``:
+Run from WSL after ``fedkg``:
 
     uv run python jobs/fedavg_check/job.py                      # clients send n_k (FedAvg)
     uv run python jobs/fedavg_check/job.py --weighting equal    # clients omit n_k (demo)

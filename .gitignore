@@ -1,5 +1,6 @@
 # --- Local-only planning docs and papers (never commit; DECISIONS D-007) ---
 reference/
+CLAUDE.local.md
 
 # --- Data, models, results: never commit raw or derived data ---
 data/

@@ -22,10 +22,6 @@ layer on FLARE for intermittent "orbital" links.
     for a specific workstream, read its handoff first, stay inside its scope, propose (don't record)
     decisions, and finish by writing `handoffs/WS-NN_return.md` and updating the workstream's row.**
     Only the executive chat, with Kaitlin, writes to `DECISIONS.md`.
-  - `reference/learning/`: Kaitlin's learning notes. When a session teaches something
-    (a walkthrough, an example run, a derivation), write it here as a file, with exact commands to
-    rebuild any throwaway environment. Don't leave it only in the conversation. Polished pieces
-    can be promoted to `docs/`.
   - `reference/literature/`: papers (PDFs). **Start from `reference/literature/INDEX.md`.**
     Don't open a PDF unless the index lacks a detail you need; if you do open one, add that
     detail to the paper's entry. If a PDF has no entry yet, read it once and add one using the
@@ -33,27 +29,16 @@ layer on FLARE for intermittent "orbital" links.
 - `README.md` is the public description. Keep it consistent with the code; never claim more than exists.
 
 ## Standing principles (do not violate)
-- **Defensible without AI assistance.** The owned core (below) must be something Kaitlin can
-  rebuild from scratch and explain at a whiteboard. AI-assisted code is fine, but every
-  non-trivial piece comes with a plain-language explanation in comments or `docs/methodology.md`.
-  She wants to learn as we work, so explain choices, not just results.
-- **Explain as you build.** For each transform, model, metric and protocol choice, record the
-  alternatives considered and why this one won.
-- **Honest framing.** Separate what was implemented from what a library does. Flag AI-assisted
-  sections. Report nulls as nulls and say so when federated doesn't beat a baseline.
+- **Explain as you build.** Every non-trivial piece comes with a plain-language explanation in
+  comments or `docs/methodology.md`. For each transform, model, metric and protocol choice,
+  record the alternatives considered and why this one won.
+- **Honest framing.** Separate what was implemented from what a library does. Report nulls as
+  nulls and say so when federated doesn't beat a baseline.
 - **Plans before execution.** Propose a plan and wait for approval before large changes,
   restructures, cuts or deleting work. Kaitlin decides.
 - **No time budgeting or feasibility scoping** unless she asks for it.
 - **Tests where logic is testable.** pytest against committed synthetic fixtures. Test the seams
   we own, not FLARE/sklearn/xgboost internals.
-
-## Owned core (whiteboard-defensible)
-1. Ontology and gene-ID harmonization, including ortholog mapping and drop-rate accounting.
-2. The leave-one-site-out split and its leakage guard.
-3. FedAvg aggregation: implement once by hand (numpy) and check it against FLARE's result.
-4. Policy evaluation: given a job spec and site policies, allow/deny with a reason.
-5. The grounding checker: is every cited ID present in this trace's tool results?
-6. (Stretch) The store-and-forward shim and its loss-of-signal model.
 
 ## Grounding and agent rules
 - **Grounding is the product.** A claim is supported only if the ID it cites (graph edge, node,

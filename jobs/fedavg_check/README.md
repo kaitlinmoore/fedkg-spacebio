@@ -1,6 +1,6 @@
-# fedavg_check: FLARE's FedAvg vs. our hand-written `fedavg()`
+# fedavg_check: FLARE's FedAvg vs. our own `fedavg()`
 
-Owned-core check #3. It trains the same logistic regression on the same 3 synthetic sites two
+It trains the same logistic regression on the same 3 synthetic sites two
 ways and checks that the final global models agree:
 
 1. **FLARE:** `NumpyFedAvgRecipe` in the FL simulator (`job.py` + `client.py`).
@@ -9,7 +9,7 @@ ways and checks that the final global models agree:
 
 `reference.py` also reports two centralized baselines on the pooled data: gradient descent with
 the same step budget, and the unpenalized optimum (sklearn). Method and results are in
-`docs/methodology.md` §5. The code is AI-drafted (Claude, WS-02), with explanations inline.
+`docs/methodology.md` §5. Explanations are inline in the code.
 
 ## Run (WSL/Ubuntu)
 ```bash

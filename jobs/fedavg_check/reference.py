@@ -1,6 +1,6 @@
 """In-process side of the FedAvg check, and the comparison report.
 
-AI-drafted (Claude, WS-02). Runs the protocol from job.py (same data, init, rounds, local steps
+Runs the protocol from job.py (same data, init, rounds, local steps
 and learning rate) with **no FLARE**: our own ``fedavg()`` does the aggregation. It then loads
 FLARE's final global model and compares.
 

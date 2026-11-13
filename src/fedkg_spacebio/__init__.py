@@ -4,10 +4,10 @@ Subpackages (see CLAUDE.md for rules and README.md for the plan):
 
 - census      : enumerate OSDR studies and build the census table          (phase 1)
 - sites       : site registry, manifests, and site definitions             (phase 1)
-- harmonize   : ontology, gene-ID and ortholog mapping, drop-rate logging  (phase 2, owned core)
-- evaluation  : leave-one-site-out splits, leakage guard, metrics          (phase 3, owned core)
+- harmonize   : ontology, gene-ID and ortholog mapping, drop-rate logging  (phase 2)
+- evaluation  : leave-one-site-out splits, leakage guard, metrics          (phase 3)
 - federation  : FLARE job recipes, aggregation, intermittent-link shim     (phases 3 / 3b)
-- policy      : per-site policy-as-code evaluation                         (phase 4, owned core)
+- policy      : per-site policy-as-code evaluation                         (phase 4)
 - agent       : tools, planner, grounding checker, trace logging           (phase 4)
 """
 

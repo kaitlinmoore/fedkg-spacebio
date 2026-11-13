@@ -1,6 +1,6 @@
 """FLARE client script for the FedAvg check: one copy runs per site.
 
-AI-drafted (Claude, WS-02). The loop is the standard Client API pattern from FLARE 2.9:
+The loop is the standard Client API pattern from FLARE 2.9:
 ``flare.init()``, then ``receive → train → send`` until the server stops the job.
 
 Federation boundary: this script generates **only its own site's** data, from (seed, site name),
