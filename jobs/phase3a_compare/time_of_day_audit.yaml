@@ -1,0 +1,126 @@
+# Q-11 time-of-day audit (WS-08): is the clock time of euthanasia recorded for flight and ground
+# animals within each phase 3a site, and is it matched?
+#
+# Why euthanasia rather than dissection: several missions froze whole carcasses and dissected
+# them later. Transcription stops at death, so for frozen carcasses the time that matters is
+# euthanasia; for fresh dissection, euthanasia and dissection are minutes apart.
+#
+# Sources checked for every site (2026-11-13):
+#   osdr_samples: OSDR Biological Data API v2 query/samples (characteristics, factor values,
+#                 parameter values) for every sample; cached by the census client.
+#   osdr_protocols: OSDR dataset metadata "study description" and "study protocol description".
+#   genelab_files: the GeneLab SampleTable and runsheet WS-07 downloaded.
+#   publication: the mission's publication(s), where one exists (listed per site).
+# No sample-level field anywhere records a clock time or an euthanasia order.
+#
+# status values:
+#   recorded_matched       clock times recorded and matched between arms
+#   recorded_mismatched    clock times recorded and different
+#   same_day_time_unknown  both arms processed on the same day(s); clock time and order unrecorded
+#   timeline_matched_time_unknown  stated to follow "the same timeline"; dates and clock time unrecorded
+#   offset_days_time_unknown  arms processed on different days by design; clock time unrecorded
+#   unknown                nothing on timing beyond duration
+
+light_cycle_recorded:
+  OSD-47: "12 h light/dark cycle"
+  OSD-48: "12 h light/dark cycle"
+  OSD-137: "12:12 hour light/dark cycle (lights on: 0700-1900 GMT)"
+  OSD-245: null
+  OSD-379: "12 h light/dark cycle"
+  OSD-463: "12 h light: 12 h dark. Lights on at 7:00 GMT"
+
+sites:
+  SpaceX-4:
+    stratum: iss
+    studies: [OSD-47, OSD-48]
+    flight_time: not recorded
+    ground_time: not recorded
+    status: offset_days_time_unknown
+    evidence:
+      - source: "Choi et al. 2020, Sci Rep 10:2336, doi:10.1038/s41598-020-58898-4 (PMC7012842), Methods"
+        says: >-
+          Flight mice processed on orbit on days 17 and 18 after transfer (L+21/22 d, OSD-47) or day
+          33 (L+37 d, OSD-48). Ground controls: "All procedures were off-set by a 4-day delayed
+          schedule"; dissected "using the same timelines (off-set by 4 days)". Habitat lights
+          6:00-18:00 GMT. No clock time of euthanasia.
+      - source: "OSDR OSD-48 protocol text"
+        says: "Most flight carcasses frozen on orbit and dissected on Earth; no clock time."
+  SpaceX-8:
+    stratum: iss
+    studies: [OSD-137]
+    flight_time: not recorded
+    ground_time: not recorded
+    status: unknown
+    evidence:
+      - source: "Beheshti et al. 2019, Sci Rep 9:19195 (PMC6915713), Methods"
+        says: "Euthanized after 42 days of flight (n = 6 flight, 6 ground); no timing or schedule relative to ground controls."
+      - source: "OSDR OSD-137 protocol text"
+        says: "Carcasses stored at -80 C until dissection on Earth; light cycle lights on 0700 GMT; no clock time."
+  SpaceX-13-ISST:
+    stratum: iss
+    studies: [OSD-245]
+    flight_time: "on-orbit, over four days 2018-02-06..09; clock time not recorded"
+    ground_time: "same euthanasia timeline (KSC); dates and clock time not recorded"
+    status: timeline_matched_time_unknown
+    evidence:
+      - source: "OSDR OSD-245 study description"
+        says: >-
+          ISS Terminal mice euthanized "over the course of a four days of dissections (2/6/18 until
+          2/9/18)"; "The ISS-terminal Ground Controls (at KSC) followed the same euthanasia
+          timeline, methods, and preservation."
+      - source: "Ballerini et al. 2020, Adv Ther, doi:10.1002/adtp.202000014"
+        says: "Not read (no open full text found); the OSDR description is the source."
+  SpaceX-16-ISST:
+    stratum: iss
+    studies: [OSD-379]
+    flight_time: "on-orbit after 22-23 days; clock time not recorded"
+    ground_time: not recorded
+    status: unknown
+    evidence:
+      - source: "OSDR OSD-379 study description and protocols"
+        says: >-
+          ISS-T sacrificed on orbit after 22-23 days; independent ground controls "in matched
+          environmental conditions"; ground facility light cycle "matched in timing to the light
+          cycle used for Transporters and Habitats". No euthanasia schedule or clock time.
+      - source: "publication"
+        says: "None linked in OSDR; one search (2026-11-13) found none with timing."
+  SpaceX-13-LAR:
+    stratum: earth
+    studies: [OSD-245]
+    flight_time: "2018-01-16 at Novartis; clock time not recorded"
+    ground_time: "2018-01-16 at Novartis; clock time not recorded"
+    status: same_day_time_unknown
+    evidence:
+      - source: "OSDR OSD-245 study description"
+        says: >-
+          LAR flight returned 2018-01-13, "ambulatory on-ground for ~4 days, until all subjects were
+          processed during one day of dissections"; "both the LAR and LAR Ground Control groups
+          were processed (~41 weeks old; 1/16/18)". Order within the day not recorded.
+  SpaceX-16-LAR:
+    stratum: earth
+    studies: [OSD-379]
+    flight_time: "after 40 days + 2 days recovery on Earth; clock time not recorded"
+    ground_time: not recorded
+    status: unknown
+    evidence:
+      - source: "OSDR OSD-379 study description"
+        says: "LAR returned live after 40 days and allowed to recover for 2 days before sacrifice; independent ground controls; no timing."
+  SpaceX-21:
+    stratum: earth
+    studies: [OSD-463]
+    flight_time: "2021-01-14 at TAMU; clock time not recorded"
+    ground_time: "2021-01-17 at TAMU (habitat ground controls, the arm used); clock time not recorded"
+    status: offset_days_time_unknown
+    evidence:
+      - source: "OSDR OSD-463 study description"
+        says: "\"Flight, HGC and VGC animals were euthanized and dissected on Jan 14th, 17th or 20th of 2021, respectively.\""
+      - source: "OSDR OSD-463 protocol text"
+        says: "Post-flight procedures at TAMU before euthanasia; lights on 7:00 GMT; no clock time."
+
+summary: >-
+  No site records the clock time (or order) of euthanasia for either arm. One site processed
+  flight and ground on the same day (SpaceX-13 LAR), one states a matched timeline without dates
+  (SpaceX-13 ISS-T), two ran on schedules offset by days (SpaceX-4: 4 days; SpaceX-21: 3 days),
+  and three give no schedule (SpaceX-8, SpaceX-16 ISS-T, SpaceX-16 LAR). Times are missing
+  everywhere, which meets the condition for the phase diagnostic (Q-11 step 3); it is proposed,
+  not built (handoff).
