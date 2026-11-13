@@ -34,7 +34,9 @@ packages = ["src/fedkg_spacebio"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+# Slow tests (FLARE simulator runs) are skipped by default; run them with `uv run pytest -m slow`.
+addopts = "-ra -m 'not slow'"
+markers = ["slow: runs the FLARE simulator end to end (about a minute); skipped by default"]
 
 [tool.ruff]
 line-length = 100

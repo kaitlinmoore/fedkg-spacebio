@@ -16,7 +16,126 @@ TODO: method and alternatives; how it is kept fold-safe.
 TODO: leave-one-site-out and fixed out-of-fold splits; what the leakage tests check.
 
 ## 5. Federated training
-TODO: models, FedAvg (hand-written reference vs. FLARE), aggregation settings, baselines.
+Still to come: the models used on real OSDR sites, aggregation settings for them, and baselines.
+What exists so far is the FedAvg reference check (WS-02, 2026-11-12) below. The text and code are
+AI-drafted (Claude) and reviewed with Kaitlin.
+
+### 5.1 FedAvg: what it computes
+Each round, the server sends the current global parameters θ to every site. Site k trains locally
+for a few steps on its own n_k samples and sends back θ_k. The server sets
+
+    θ_global = Σ_k n_k · θ_k / Σ_k n_k
+
+which is a weighted average of the site models, with weights proportional to sample counts.
+Implementation: `src/fedkg_spacebio/federation/fedavg.py`. It takes a single array or a dict of
+named arrays, works in float64, and raises on empty input, length or shape mismatches, mismatched
+dict keys, or weights that are negative, non-finite or sum to zero.
+
+**Why weight by n_k.** Write L_k for site k's mean loss. The pooled loss is
+L = Σ_k (n_k/N) L_k, so its gradient is ∇L = Σ_k (n_k/N) ∇L_k. If each site takes **one**
+full-batch gradient step from the same θ, then
+
+    Σ_k (n_k/N)(θ − η∇L_k) = θ − η Σ_k (n_k/N)∇L_k = θ − η∇L
+
+So one round of sample-weighted FedAvg is exactly one step of gradient descent on the pooled data.
+That's the special case where federated equals centralized. The test suite checks it
+(`test_one_local_step_fedavg_equals_centralized_gd`), and `reference.py` reports it
+(max |Δθ| = 4.4e-16 over 20 rounds).
+
+**Why it stops being equal.** The equivalence needs all of: one local step, full-batch gradients,
+n_k weights, every site in every round, and the same step size. With several local steps, each
+site walks toward *its own* optimum, and because ∇L_k depends nonlinearly on θ, averaging the
+endpoints is not the endpoint of pooled gradient descent ("client drift"). The more the sites
+differ (feature or label shift), the bigger the gap. Several local steps are still common: they
+trade some accuracy for fewer communication rounds.
+
+**Equal weights optimize a different objective.** With weights of 1, the same argument gives
+gradient descent on (1/K) Σ_k L_k, which treats every site as equally important regardless of
+size. That isn't "wrong", but it isn't the pooled-data model either: small sites get pulled up. We
+use n_k weights by default (standard FedAvg; it reproduces pooled gradient descent). Equal or
+other weightings stay available as an explicit choice.
+
+### 5.2 How FLARE 2.9.1 weights clients
+Read from the installed source (`nvflare/app_common/workflows/fedavg.py`, `base_fedavg.py`,
+`aggregators/weighted_aggregation_helper.py`):
+
+- weight_k = `aggregation_weights.get(site, 1.0)` × `meta["NUM_STEPS_CURRENT_ROUND"]`
+- global = Σ weight_k · θ_k × (1 / Σ weight_k), with results added in **arrival order**
+  (streaming "InTime" aggregation)
+- If `NUM_STEPS_CURRENT_ROUND` is missing, a bool, non-numeric, non-finite or ≤ 0, FLARE uses
+  **1.0 without a warning**. The Client API does not fill it in. A client that forgets to send
+  its sample count therefore gets equal-weight averaging, silently.
+
+Our client sends `meta[FLMetaKey.NUM_STEPS_CURRENT_ROUND] = n_k`, the same convention as FLARE's
+own sklearn executor. Our `fedavg()` deliberately differs on bad input: it raises instead of
+falling back to 1.0.
+
+Two related FLARE details:
+1. The NumPy recipe's persistor casts the initial model to float32 and saves a single array (key
+   `numpy_key`). So the check uses one flat vector θ = [w, b] and a zero initialization (exact in
+   float32). Clients train and send float64, so every later round stays float64.
+2. FLARE's Newton-Raphson logistic-regression recipe (`FedAvgLrRecipe`, used by the `hello-lr`
+   example) has its sites send gradient and Hessian **sums**, and then averages them with weights
+   n_k again. So a site's effective weight is ∝ n_k². On the example's 4-site heart-disease data
+   this lands 0.34 (max |Δθ|, with max |θ| = 0.80) away from pooled Newton-Raphson. That doesn't
+   affect this check, but it's a reason to verify what any recipe sends and how it weights it
+   before using it.
+
+### 5.3 The check: FLARE vs. hand-written FedAvg
+**Setup** (`jobs/fedavg_check/`; `src/fedkg_spacebio/federation/{synthetic,logreg}.py`):
+- **Data.** 3 synthetic sites, sizes 400 / 150 / 50, 4 features with shared true coefficients.
+  Each site has a different feature mean (covariate shift) and a different intercept, so positive
+  rates are 52.5% / 82.0% / 12.0%. Each site's data comes from its own seeded RNG stream, so a
+  FLARE client generates only its own site.
+- **Model.** Unregularized logistic regression, full-batch gradient descent.
+- **Protocol.** lr = 0.5, 5 local steps per round, 20 rounds, zero init, all 3 sites every round.
+- **One shared trainer.** `local_train` is the same function on both paths, so a mismatch can
+  only come from aggregation or transport.
+
+**Alternatives considered.**
+- sklearn `LogisticRegression` with warm starts on the sites: rejected. The solver's step count
+  and internals would sit between us and the arithmetic we're checking.
+- FLARE's `FedAvgLrRecipe`: rejected. It's a different algorithm (Newton-Raphson on aggregated
+  statistics, not model averaging).
+- A PyTorch model: rejected. It adds a dependency and nondeterminism, and buys nothing for a
+  linear model.
+- Equal-size, homogeneous sites: rejected. Every weighting gives nearly the same answer there, so
+  a weighting bug would pass.
+
+**Tolerance.** `np.allclose(rtol=1e-9, atol=1e-12)`. Both paths do the same float64 arithmetic
+and differ only in summation order (FLARE adds results as they arrive), which accounts for a few
+ulps (float64 eps ≈ 2.2e-16). Swapping n_k weights for equal weights moves θ by 7.0e-2. The
+tolerance sits about 6 orders of magnitude above the expected noise and about 7 below a weighting
+error.
+
+**Results** (seed 0; training-set numbers on the pooled 600 samples):
+
+| model | max \|Δθ\| vs FLARE (same weighting) | pooled log-loss | pooled accuracy | max \|Δθ\| to centralized optimum |
+|---|---|---|---|---|
+| FLARE FedAvg, clients send n_k | — | 0.4430 | 0.790 | 0.048 |
+| reference `fedavg()`, n_k | **1.1e-15** (PASS) | 0.4430 | 0.790 | 0.048 |
+| FLARE FedAvg, clients omit n_k | — | 0.4435 | 0.785 | 0.069 |
+| reference `fedavg()`, equal weights | **6.7e-16** (PASS) | 0.4435 | 0.785 | 0.069 |
+| centralized GD, same 100-step budget | n/a | 0.4429 | 0.793 | 0.024 |
+| centralized optimum (sklearn, C=∞) | n/a | 0.4429 | 0.793 | 0 |
+
+**Reading it.**
+- FLARE's FedAvg *is* sample-weighted FedAvg, and our hand-written version reproduces it to
+  machine precision, provided clients send n_k. Without n_k, FLARE reproduces our equal-weight
+  version instead. That confirms the silent fallback directly.
+- FedAvg with 5 local steps lands about twice as far from the pooled optimum as centralized
+  gradient descent with the same number of gradient steps (0.048 vs. 0.024). That's client drift
+  on heterogeneous sites. In loss terms the gap is tiny here (0.4430 vs. 0.4429), but it is not
+  zero, and federated doesn't beat centralized.
+- Equal weighting is further still (0.069), as expected: it optimizes the per-site average, not
+  the pooled loss.
+
+**Limits.** Synthetic data, training-set metrics only (this is an equivalence check, not a
+generalization estimate), deterministic full-batch training, a simulator on one machine, and no
+privacy mechanism. Federated learning by itself is not private.
+
+**Reproduce.** `uv run python jobs/fedavg_check/job.py` (plus `--weighting equal`), then
+`uv run python jobs/fedavg_check/reference.py`. Or run `uv run pytest -m slow`.
 
 ## 6. Intermittent links (phase 3b, stretch)
 TODO: shim design adapted from FLUID (Casaletto et al., 2025), loss-of-signal model, aggregation under stragglers.
