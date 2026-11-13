@@ -6,8 +6,7 @@ Sections fill in as each phase is built.
 ## 1. Census and site design
 
 Liver is done (WS-06; numbers in [`census-liver.md`](census-liver.md)). Code:
-`src/fedkg_spacebio/census/`. AI-drafted (Claude Code), with a walkthrough in each module's
-docstring.
+`src/fedkg_spacebio/census/`, with a walkthrough in each module's docstring.
 
 **Where the census rows come from.** OSDR's own sample metadata, one bulk `query/samples/` call
 for all candidate studies. The KG is used only to pick candidates and to attach its comparison
@@ -54,7 +53,34 @@ otherwise from quoted protocol text (`census/liver_curation.yaml`). Handling it 
 is an open proposal; see `census-liver.md`.
 
 ## 2. Harmonization
-TODO: ontology mapping, gene-ID namespace, ortholog mapping, drop-rate accounting, gold-set evaluation.
+Still to come: ontology mapping, ortholog mapping and gold-set evaluation. Gene-ID mapping for
+phase 3a is below (WS-07, 2026-11-12; `src/fedkg_spacebio/harmonize/gene_map.py`).
+
+### 2.1 Ensembl → NCBI Gene for per-gene summaries
+**Target:** NCBI Gene (D-012).
+
+**Source:** GeneLab's own annotation table for mouse, Ensembl 112 (GL-DPPD-7110-A,
+figshare 48354460, checksum pinned in code). It's the table GeneLab annotated these DE files
+with, so our mapping and theirs agree.
+
+**When:** each site runs DE on its native Ensembl IDs and maps the **per-gene summary**, not the
+counts.
+- *Alternative:* map counts first and sum rows that share an Entrez ID. *Rejected:* summing
+  counts of different loci creates a gene that was never measured, and it changes the
+  dispersion estimate.
+
+**Which pairs:** one-to-one only, decided over the **whole table**, so every site drops the
+same IDs.
+- *Alternatives:* keep the first Entrez ID of a one-to-many; keep the highest-expressed of a
+  many-to-one. *Rejected:* both are guesses, and the second depends on site data, so sites
+  could map differently.
+
+**Accounting:** every Ensembl ID falls into one category (`one_to_one`, `no_entrez`,
+`one_to_many`, `many_to_one`, `not_in_table`), counted over the table, over all of a site's
+genes, and over its tested genes.
+- Whole table: 32,945 of 57,186 Ensembl IDs are one-to-one. Most of the rest (23,910) have no
+  Entrez ID; the remainder are 245 one-to-many and 86 many-to-one.
+- Per-site drop rates on tested genes are in `docs/phase3a-liver-meta.md`.
 
 ## 3. Normalization and features
 TODO: method and alternatives; how it is kept fold-safe.
@@ -64,8 +90,7 @@ TODO: leave-one-site-out and fixed out-of-fold splits; what the leakage tests ch
 
 ## 5. Federated training
 Still to come: the models used on real OSDR sites, aggregation settings for them, and baselines.
-What exists so far is the FedAvg reference check (WS-02, 2026-11-12) below. The text and code are
-AI-drafted (Claude) and reviewed with Kaitlin.
+What exists so far is the FedAvg reference check (WS-02, 2026-11-12) below.
 
 ### 5.1 FedAvg: what it computes
 Each round, the server sends the current global parameters θ to every site. Site k trains locally
@@ -128,7 +153,7 @@ Two related FLARE details:
    affect this check, but it's a reason to verify what any recipe sends and how it weights it
    before using it.
 
-### 5.3 The check: FLARE vs. hand-written FedAvg
+### 5.3 The check: FLARE vs. our own FedAvg
 **Setup** (`jobs/fedavg_check/`; `src/fedkg_spacebio/federation/{synthetic,logreg}.py`):
 - **Data.** 3 synthetic sites, sizes 400 / 150 / 50, 4 features with shared true coefficients.
   Each site has a different feature mean (covariate shift) and a different intercept, so positive
@@ -167,7 +192,7 @@ error.
 | centralized optimum (sklearn, C=∞) | n/a | 0.4429 | 0.793 | 0 |
 
 **Reading it.**
-- FLARE's FedAvg *is* sample-weighted FedAvg, and our hand-written version reproduces it to
+- FLARE's FedAvg *is* sample-weighted FedAvg, and our numpy version reproduces it to
   machine precision, provided clients send n_k. Without n_k, FLARE reproduces our equal-weight
   version instead. That confirms the silent fallback directly.
 - FedAvg with 5 local steps lands about twice as far from the pooled optimum as centralized
@@ -183,6 +208,65 @@ privacy mechanism. Federated learning by itself is not private.
 
 **Reproduce.** `uv run python jobs/fedavg_check/job.py` (plus `--weighting equal`), then
 `uv run python jobs/fedavg_check/reference.py`. Or run `uv run pytest -m slow`.
+
+### 5.4 Phase 3a: federated DE meta-analysis (liver)
+Full write-up, checks and results: [`phase3a-liver-meta.md`](phase3a-liver-meta.md).
+
+**Site DE.**
+- pydeseq2 on each client's own flight and ground samples, plus covariates (`~ study +` for
+  SpaceX-4, `~ age +` for SpaceX-16), on rounded RSEM counts.
+- Unshrunk MLE log2FC and lfcSE. Shrinkage changes what the SE means.
+- *Alternatives:*
+  - an all-group fit like GeneLab's. *Rejected* (Kaitlin): it would couple a mission's ISS and
+    Earth clients through shared dispersions.
+  - edgeR or limma-voom. *Rejected:* pydeseq2 is pre-approved (D-016) and matches GeneLab's
+    DESeq2.
+
+**Inclusion.**
+- Primary: genes with base mean ≥ 10 at **every** site of the stratum (a fixed, pre-specified
+  filter; Kaitlin).
+- Sensitivity runs: ≥ 3 sites; pydeseq2's independent filter; any finite p.
+- *Why not independent filtering as primary:* its threshold is chosen per site from that site's
+  own p-values, so the gene set would depend on each site's results.
+
+**Pooling (D-021).**
+- Inverse-variance FE.
+- RE with REML τ² (fixed-point iteration from τ² = 0, truncated at 0, per-gene convergence flag).
+- Hartung–Knapp–Sidik–Jonkman intervals with t(k−1), **truncated** (max(1, q); Kaitlin).
+- Cochran's Q and I², and BH within each stratum and variant.
+- *Alternatives:*
+  - DerSimonian–Laird: biased low at small k.
+  - Paule–Mandel: kept as the comparator (Check 3).
+  - untruncated HKSJ: reported, since it can be narrower than the RE Wald interval when q < 1.
+
+**Headline: changed after seeing results (D-026, 2026-11-13, Kaitlin).** The pre-specified headline
+was RE with truncated HKSJ. It found **no gene at BH q < 0.05** in either stratum or any variant,
+and structurally can't at k = 3–4: with t(2) or t(3), passing BH over ~13,000 genes needs
+|t| ≥ 16 (Earth) or ≥ 8 (ISS) even if 1,000 genes passed together, and the largest observed
+|t| was 6.7. The headline is now:
+- **FE hit:** fixed-effect BH q < 0.05.
+- **Heterogeneity flag:** Cochran's Q p < 0.10, with I² reported alongside. 0.10, not 0.05,
+  because Q has little power with few sites.
+- **Consistent FE hit:** FE hit without the flag, read as "a change consistent across *these*
+  missions". It means no *detectable* heterogeneity, which with 3–4 sites is a weak statement:
+  a wide-SE site can disagree without raising Q.
+- RE-HKSJ stays as a secondary result, with the |t| floor reported.
+- *What FE does and doesn't answer:* the precision-weighted average of the missions in the
+  analysis. Not what a new mission would show (that's the RE question). Because it was chosen
+  after seeing the results, every place that reports the headline says so.
+- Definitions and counts live in one place (`federation/results.py`, `hit_counts`).
+
+**FLARE.** A one-round custom `ModelController` that waits for every client, validates each
+summary and calls our pooling.
+- *Rejected:*
+  - `FedTaskRecipe`: its controller discards results;
+  - `FedStatsRecipe`: named-feature statistics, with noise and min-count filters;
+  - the FedAvg recipe: a model lifecycle we don't have.
+
+**What federation does and doesn't add.** FE federated pooling equals central pooling of the
+same summaries by construction, so Check 1 is a wiring check, not a benefit. RE and the
+heterogeneity flag need per-site estimates at the server, so they are not private. FE alone
+would need only Σw·y and Σw per gene.
 
 ## 6. Intermittent links (phase 3b, stretch)
 TODO: shim design adapted from FLUID (Casaletto et al., 2025), loss-of-signal model, aggregation under stragglers.

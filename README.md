@@ -2,7 +2,7 @@
 
 An LLM agent that coordinates federated analysis of NASA OSDR space biology data across sites that can't pool their data. It uses knowledge graphs (SPOKE-GeneLab, Monarch) for shared semantics, NVIDIA FLARE for training, and site policies that the agent enforces before every job.
 
-> **Status: design phase.** The repository currently holds the plan and conventions; no code has been written yet. Sections marked **TODO** are filled in as the work lands. Results will be reported as they come out, including nulls and cases where federation does not beat a baseline.
+> **Status: early implementation.** Done so far: an OSDR liver census and site design, a FedAvg reference check against FLARE, and a federated differential-expression meta-analysis of mouse liver on FLARE (phase 3a, [`docs/phase3a-liver-meta.md`](docs/phase3a-liver-meta.md)). The agent, policy layer, ontology/ortholog harmonization and the federated classifiers are not built yet. Sections marked **TODO** are filled in as the work lands. Results are reported as they come out, including nulls and cases where federation does not beat a baseline.
 
 ---
 
@@ -50,7 +50,9 @@ Existing knowledge-graph agent tools (e.g., `mcp-genelab`) query open, centraliz
 - **Governance.** A test suite of jobs that should be allowed or refused under each site's policy.
 - **Stretch.** Accuracy vs. rounds and vs. wall-clock time under different loss-of-signal schedules.
 
-**TODO — results tables and figures.**
+**Phase 3a (liver, federated DE meta-analysis):** 7 simulated sites in two strata (ISS-euthanized, k = 4; Earth-euthanized, k = 3). The pre-specified random-effects headline (REML + truncated Hartung–Knapp) found no gene at FDR < 0.05 in either stratum, which is expected with 3–4 sites. After seeing that, the headline was changed to fixed effect with a per-gene heterogeneity flag: 1,926 (ISS) and 1,722 (Earth) genes at FDR < 0.05, of which 971 and 870 show no detectable heterogeneity. Federated pooling reproduced central pooling exactly. Details, checks and limitations: [`docs/phase3a-liver-meta.md`](docs/phase3a-liver-meta.md). No biological claims are made.
+
+**TODO — classifier results tables and figures.**
 
 ## Data and knowledge sources
 
@@ -59,12 +61,13 @@ All data and graph releases are downloaded locally and **never committed**. Vers
 | Source | Use | Access | Version / date |
 |---|---|---|---|
 | NASA Open Science Data Repository (OSDR), GeneLab | Spaceflight and ground-control omics + metadata | https://osdr.nasa.gov/ · Biological Data API: https://visualization.osdr.nasa.gov/biodata/api/ | Biological Data API v2; liver studies accessed 2026-11-12 (GeneLab processing GL-DPPD-7101-G, GRCm39, Ensembl 112; see [`docs/census-liver.md`](docs/census-liver.md)) |
+| GeneLab reference annotations | Ensembl → NCBI Gene mapping for phase 3a | GL-DPPD-7110-A, Mus musculus Ensembl 112: `Mus_musculus.GRCm39.112-GL-annotations.tsv` (figshare file 48354460; https://github.com/nasa/GeneLab_Data_Processing) | Built 2024-08-11 (org.Mm.eg.db 3.19.1); downloaded 2026-11-13; SHA-256 `123a08990f1982b266115852d720e8d0482af6e873f8eca45c8449d3f54044e2` |
 | SPOKE-GeneLab | Links OSDR experiments to a biomedical KG; human orthologs; CL/UBERON mapping | https://github.com/BaranziniLab/spoke_genelab | TODO |
 | mcp-genelab | Natural-language → Cypher over the GeneLab KG | Hosted: `https://visualization.osdr.nasa.gov/kg/mcp` · https://github.com/sbl-sdsc/mcp-genelab | Assumed KG v0.3.1+20260311 (not exposed live; see [`docs/kg-schema.md`](docs/kg-schema.md)) |
 | Monarch KG | Cross-species genes–phenotypes–diseases | https://data.monarchinitiative.org/monarch-kg | TODO (pinned release) |
 | PrimeKG (optional) | Disease and drug context, shares Mondo IDs with Monarch | https://github.com/mims-harvard/PrimeKG | TODO |
 
-**Selected OSD datasets and site assignments:** liver census done for OSD-47, -48, -137, -168, -173, -245, -379, -463 and -686 ([`docs/census-liver.md`](docs/census-liver.md)); the site mapping in [`SITES.md`](SITES.md) is **proposed**, not decided. Rebuild in WSL with `uv run python -m fedkg_spacebio.census.build`.
+**Selected OSD datasets and site assignments:** liver census done for OSD-47, -48, -137, -168, -173, -245, -379, -463 and -686 ([`docs/census-liver.md`](docs/census-liver.md)); the liver sites and ISS/Earth strata in [`SITES.md`](SITES.md) were accepted on 2026-11-12. Rebuild in WSL with `uv run python -m fedkg_spacebio.census.build`. Phase 3a used GeneLab's RSEM unnormalized count matrices (standard and rRNA-removed), SampleTables, contrasts and full differential-expression tables for OSD-47, -48, -137, -245, -379 and -463 (accessed 2026-11-12); no FASTQ or BAM files.
 
 Each source has its own license and terms of use, which apply to the data independently of this repository's code license. Check each source before redistributing anything derived from it.
 
@@ -73,6 +76,7 @@ Each source has its own license and terms of use, which apply to the data indepe
 - Python, managed with [uv](https://docs.astral.sh/uv/)
 - [NVIDIA FLARE](https://nvflare.readthedocs.io/) 2.9.x (Job Recipe API, FL simulator)
 - scikit-learn, XGBoost; PyTorch / PyTorch Geometric for the GNN stretch goal
+- pydeseq2 (site differential expression), numpy/scipy (meta-analysis pooling), matplotlib; statsmodels as an independent comparator (tests and Check 3, dev dependency)
 - Model Context Protocol (MCP) servers for knowledge-graph access
 - pandas, pytest
 
