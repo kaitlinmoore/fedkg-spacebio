@@ -372,6 +372,13 @@ annotation and cross-checked against GPL1261; Arntl appears as its current symbo
 - SpaceX-8 lacks the pattern and is also the site whose removal raises ISS hits most.
 - This is a diagnostic. It doesn't establish an artifact, and no biological claim follows from it.
 
+**Follow-up (WS-09):** the circadian phase diagnostic is in
+[`phase3a-time-of-day.md`](phase3a-time-of-day.md).
+- **Flight vs ground:** SpaceX-4, -13-ISST and -16-ISST show a clock-shaped flight–ground
+  difference of 2.5–4.1 h. SpaceX-8 shows none detectable, but isn't shown to differ from them
+  (p 0.16).
+- **What it can't separate:** a dissection-time mismatch from a clock shift.
+
 ## 6. Recommendation (proposed; Kaitlin decides)
 
 By question, not by hit count:

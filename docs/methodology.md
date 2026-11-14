@@ -305,6 +305,31 @@ non-zero" (random effects'). Every method is labelled with the question it answe
   deciles) tests, against a background of tested genes measurable on the array.
 - These are diagnostics, not corrections: spaceflight may shift the clock itself.
 
+### 5.6 Phase 3a time of day: circadian phase diagnostic (WS-09)
+Full write-up: [`phase3a-time-of-day.md`](phase3a-time-of-day.md).
+- **Reference:** a 24 h cosinor fitted per gene.
+  - Peak times from GSE11923: hourly liver arrays, constant darkness, so times are CT.
+  - Amplitudes from GSE54651: 6-hourly liver RNA-seq, giving the sites' log2(count + 1) scale.
+  - Ten clock genes pass a rule fixed before any site data was opened.
+- **Why not per-animal phases from z-scored genes:** centring within a site removes absolute
+  time. Two arms then come out about 12 h apart for any true shift.
+- **Clock plane (inside each site):**
+  - the flight–ground difference **d** in the panel genes, adjusted for the site's DE
+    covariates, is fitted as α**a** + β**b**, where a_g = A_g cos ωφ_g and b_g = A_g sin ωφ_g;
+  - |Δ| = (24/π)·arcsin(|(α, β)|/2), reported as not identifiable when |(α, β)| ≥ 2;
+  - R²_plane is the share of |d|² in the plane;
+  - label permutation within covariate blocks;
+  - bootstrap intervals paired with reference-bootstrap replicates, plus ±25% amplitude
+    sensitivity.
+- **Limits:** it can't tell a dissection-time mismatch from a clock shift, or a shift from an
+  amplitude change. Direction needs a light-phase assumption.
+- **Alternatives rejected:**
+  - clock correlation distance (needs samples spread over the cycle and n ≈ 30);
+  - ZeitZeiger and CYCLOPS (need more data);
+  - VST (adds a fit; the panel genes are well expressed).
+- **Exploratory absolute phase:** fitted against the RNA-seq gene baselines. It stopped at its
+  pre-set ground-arm plausibility check.
+
 ## 6. Intermittent links (phase 3b, stretch)
 TODO: shim design adapted from FLUID (Casaletto et al., 2025), loss-of-signal model, aggregation under stragglers.
 
