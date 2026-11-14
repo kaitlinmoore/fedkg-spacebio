@@ -8,8 +8,11 @@ Change a contract here first, then the code and fixtures that depend on it.
 > (census) is filled in from WS-01 and WS-06 (OSDR columns, 2026-11-12). §3 (site manifest) and §4
 > (gene mapping, site → server summary) are filled for phase 3a (WS-07). §5 (site policy) and §6
 > (job spec) are drafted, and §7 (tool returns) and §8 (trace) are sketched for the governance demo
-> (WS-10, 2026-11-13). None of §5–§8 is implemented yet; the code changes they imply are listed
-> for WS-03's code part.
+> (WS-10, 2026-11-13). WS-11 (2026-11-13) brought the code in line with the parts of them that
+> touch existing code: §3's `policy_id`, §4's inclusion-flag hash and per-gene schema 2 (V2/V3
+> columns, D-029), §4.1's clock-plane summaries (D-031, D-035), and §6.2's "send n_k" on the
+> client side (D-017). The policy evaluator, release log, masked sum, job-spec parser and agent
+> tools of §5–§8 are not implemented yet (WS-12, WS-13, WS-15).
 
 ## 1. Identifiers
 
@@ -122,14 +125,15 @@ open question. Site definition is D-014; the liver mapping is proposed in `SITES
 (site, stratum) row of D-020), built by `fedkg_spacebio.sites.manifest.write_manifests` from the
 census and written to `$FEDKG_WORKDIR/phase3a/manifests/<counts_variant>/<client>.json`. In a
 real federation each site would declare its own. Here the coordinator builds them from public
-metadata and never opens a count file. Still TODO: the gene-ID namespace field and a pointer to
-the site's policy (phase 4).
+metadata and never opens a count file. Still TODO: the gene-ID namespace field, and
+`tissue_uberon`, which §7's `sites.list` returns but the manifest doesn't carry yet (WS-15).
 
 | Field | Type | Notes |
 |---|---|---|
 | `client` | str | FLARE client name, e.g. `SpaceX-13-ISST`. Must equal the file name. The loader refuses a mismatch |
 | `site` | str | mission (D-014), e.g. `SpaceX-13` |
 | `stratum` | str | `iss` · `earth` (D-020) |
+| `policy_id` | str | the site's policy (§5), `pol:<site>:<version>`; the site part must equal `site`. Default version 1 (each testbed site's open policy); the restricted profile builds SpaceX-16's manifests with `pol:SpaceX-16:2`. A site's clients share one policy. Part of the manifest, so a profile change changes `manifest_sha256` (§6) |
 | `design` | str | pydeseq2 formula: `~ condition`, `~ study + condition` (SpaceX-4), `~ age + condition` (SpaceX-16) |
 | `contrast` | list[str] | `["condition", "flight", "ground"]` (positive = higher in flight) |
 | `counts_variant` | str | `standard` · `rrnarm` |
@@ -183,6 +187,18 @@ values, no sample names.**
 | `rounding` | rule, share of cells changed, max change |
 | `n_genes_de`, `n_ercc_dropped`, `mapping` | the drop log above, plus counts sent |
 | `versions`, `census_rows` | package versions; `comparison_id`, `genelab_contrast` |
+| `inclusion_flags_sha256` | SHA-256 of the three `tested_*` flags in canonical form (below). `validate_summary` recomputes it on both sides and refuses a mismatch |
+
+**Inclusion-flag hash** (`fedkg_spacebio.sites.inclusion`). The flags are `site_metadata` (§5.1):
+the coordinator needs them before a job to build the gene plan and run per-gene checks. The hash
+lets the site registry (§7 `sites.list`), job specs and decision records name exactly which flags
+they used. Canonical bytes, then lowercase hex SHA-256:
+- UTF-8 CSV, header `ncbi_gene,tested_mean10,tested_indep_filter,tested_finite_p`;
+- one row per gene the site reports, sorted by `ncbi_gene` ascending;
+- `ncbi_gene` as a decimal integer, each flag `1` or `0`;
+- `\n` after every row, including the last; no quoting, no spaces.
+
+The per-gene estimates are not part of the hash.
 
 **Governance note (for phase 4 policy):** random effects (REML) need each site's per-gene
 estimate and SE at the server, so per-site summaries leave the site. A fixed-effect-only
@@ -192,11 +208,13 @@ per-site estimates is therefore compatible with FE but not with RE. The heteroge
 (Cochran's Q) also needs per-site estimates. §5 turns this into policy rules; §6.3 describes the
 masked sum.
 
-**Phase 3a per-gene results table** (schema `phase3a-per-gene/1`,
-`fedkg_spacebio.federation.results`; written by `jobs/phase3a_meta/report.py`). One file per
+**Phase 3a per-gene results table** (schema `phase3a-per-gene/2`,
+`fedkg_spacebio.federation.results`; written by `jobs/phase3a_meta/report.py`. Schema 2 (WS-11)
+added the V2 and V3 columns and their hits; every schema-1 column is unchanged). One file per
 (stratum, counts, variant): `results/phase3a/<stratum>/<counts>/flare/<variant>/per_gene.csv.gz`
 plus `per_gene.schema.json` (column dtypes and definitions, thresholds, provenance: clients,
-inclusion flag, n per arm, package versions, annotation checksum). The stable interface for
+inclusion flag, n per arm, package versions, annotation checksum, and `eb_priors`: the V2 prior
+(d₀, s₀²) and V3 prior (τ² grid, π, EM convergence) fitted across that variant's genes). The stable interface for
 comparing later pooling methods against these outputs.
 - Format: gzip CSV, UTF-8, header, no index; floats `%.17g` (exact round trip); missing = empty;
   booleans `True`/`False`. Key: `ncbi_gene`. Any column change bumps the schema version.
@@ -206,15 +224,76 @@ comparing later pooling methods against these outputs.
 | `ncbi_gene`, `symbol` | key; symbol is a display label from the annotation table |
 | `k` | sites pooled for this gene |
 | `fe_est`, `fe_se`, `fe_p`, `fe_q` | fixed effect; `fe_q` is BH within stratum and variant |
-| `re_est`, `hksj_se`, `hksj_ci_low`, `hksj_ci_high`, `re_p`, `re_q` | REML RE, truncated HKSJ |
+| `v3_est`, `v3_sd`, `v3_ci_low`, `v3_ci_high`, `v3_p`, `v3_q` | V3, empirical-Bayes τ² (D-028): posterior mean and SD of the cross-mission mean, 95% equal-tailed credible interval, p_EB, BH q |
+| `v3_tau2_post_mean`, `v3_p_tau2_zero` | V3: posterior mean of the gene's τ², posterior mass at τ² = 0 |
+| `v2_se`, `v2_ci_low`, `v2_ci_high`, `v2_df`, `v2_p`, `v2_q` | V2, moderated multiplicative heterogeneity (D-028), untruncated; its estimate is `fe_est` |
+| `v2_phi`, `v2_phi_moderated` | V2: φ̂ = Q/(k−1) and φ̃ after moderation |
+| `re_est`, `hksj_se`, `hksj_ci_low`, `hksj_ci_high`, `re_p`, `re_q` | REML RE, truncated HKSJ (D-025; kept for comparison) |
 | `hksj_multiplier`, `re_p_untruncated` | HKSJ q before truncation; untruncated p |
 | `tau2`, `reml_converged`, `i2`, `q`, `q_p` | heterogeneity (I² Q-based) |
-| `fe_hit` | `fe_q` < 0.05. Per D-029 this is the "these missions" result, with Q and I² as annotations, not filters; V3 answers "a new mission". Its V3 columns and this description's code-side change are pending (WS-03 code part) |
-| `het_flag` | `q_p` < 0.10 |
-| `fe_hit_consistent`, `fe_hit_heterogeneous` | `fe_hit` split by `het_flag` (the D-026 headline; descriptive only under D-029) |
-| `re_hit` | `re_q` < 0.05 (secondary) |
+| `fe_hit` | `fe_q` < 0.05: the **"these missions"** result (D-029). Q p and I² annotate it; they don't filter it |
+| `v3_hit` | `v3_q` < 0.05: the **"a new mission"** result (D-029) |
+| `v2_hit` | `v2_q` < 0.05: sensitivity for "these missions" when site SEs may be misestimated |
+| `het_flag` | `q_p` < 0.10 (annotation) |
+| `fe_hit_consistent`, `fe_hit_heterogeneous` | `fe_hit` split by `het_flag` (D-026's headline; descriptive only under D-029) |
+| `re_hit` | `re_q` < 0.05 (REML + truncated HKSJ; superseded by `v3_hit` for "a new mission"; kept for comparison) |
 | `log2fc__<client>`, `se__<client>`, `base_mean__<client>`, `included__<client>` | per-site inputs; `included` = entered pooling for this gene |
 | `n_flight__<client>`, `n_ground__<client>` | animals per arm in that site's fit (constant per column) |
+
+### 4.1 Clock-plane summaries (D-031, D-035)
+
+**Status: filled (WS-09, 2026-11-13; contract written in WS-11).** The Q-11 diagnostic's site →
+server objects, from `fedkg_spacebio.federation.site_clock`. Each is checked by exact key whitelists
+(`SUMMARY_FIELDS`, `RESULT_FIELDS`, `READING_FIELDS`, `ABSOLUTE_SUMMARY_FIELDS`,
+`ABSOLUTE_ARM_FIELDS`) on the site and again by the server. Both are plain JSON. **No per-sample
+value, sample name or expression value is in either.** Both are output kind `per_site_summary`
+(§5.1, §5.2): they reveal arm-level aggregates of one site. Times are hours in the reference's
+circadian time (CT; the sites ran LD, so ZT, and the gap is under 1 h and not corrected).
+`tests/test_contracts.py` checks that every whitelisted field is listed here.
+
+**`ClockSummary`** (`validate_clock_summary`), one per client:
+
+| Field | Notes |
+|---|---|
+| `client`, `site`, `stratum` | as §3 |
+| `n_flight`, `n_ground` | positive ints |
+| `design` | the site's DE design; covariates enter the per-gene OLS |
+| `panel_used` | `[{ncbi_gene, symbol}]`, the reference panel genes usable at this site (k of them) |
+| `panel_dropped` | `[{ncbi_gene, symbol, reason}]` |
+| `result` | the fields below |
+| `settings` | the fixed method settings (`site_clock.SETTINGS`), plus the seed |
+| `versions` | numpy, pandas, scipy |
+
+| `result` field | Notes |
+|---|---|
+| `k` | panel genes used; equals `len(panel_used)` |
+| `alpha`, `beta` | the **chord**: flight's point on the reference clock circle minus ground's, from d ≈ α·a + β·b |
+| `chord_cov_sample` | 2 × 2 covariance of (α, β) over the sample bootstrap |
+| `L`, `L_ci`, `L_ci_sample_only` | chord length and its 95% CI, joint (sample × reference bootstrap) and sample-only |
+| `delta_h`, `delta_h_ci`, `delta_h_ci_sample_only` | \|Δ\| = (24/π)·arcsin(L/2) in hours, with CIs; null where L ≥ 2 |
+| `delta_h_amplitude_x0.75`, `delta_h_amplitude_x1.25` | \|Δ\| if both arms' amplitudes were 0.75× or 1.25× the reference (the ±25% sensitivity) |
+| `share_boot_L_ge_2` | share of bootstrap chords with L ≥ 2 |
+| `identifiability` | `identifiable` · `ci_upper_not_identifiable` · `not_identifiable` (L ≥ 2) |
+| `readings` | the two direction readings (below) |
+| `r2_plane`, `r2_null_expected`, `r2_plane_perm_median` | share of the flight–ground panel difference in the clock plane; its no-structure expectation 2/k; the permutation median |
+| `p_perm_L`, `p_perm_r2`, `n_perm`, `perm_exact` | permutation tests within covariate blocks |
+| `noise_sd` | the noise scalar: median residual SD over panel genes |
+
+`readings`: exactly two, `flight_later` and `flight_earlier`. Each has `direction`, `mid_ct`, and
+`flight_ct`, `ground_ct`, `light_phase_consistent` (null when \|Δ\| isn't identifiable). Which
+reading applies rests on the light-phase assumption (D-035): magnitudes don't depend on it,
+directions do.
+
+**`AbsoluteSummary`** (`validate_absolute_summary`), exploratory (B), two stages:
+
+| Field | Notes |
+|---|---|
+| `client`, `k` | as above |
+| `stage` | `ground`: the ground arm only. `both`: ground then flight, sent only after every site's ground arm passed the plausibility window (CT −1..13). (B) stopped at stage 1 (D-035) |
+| `arms` | per arm, in order: `arm`, `n`, `circ_mean_ct` (circular mean of the animals' times), `resultant_length` (R; 1 = all at one time), `median_template_r` (median per-animal template correlation), `median_scale` (median per-animal amplitude relative to the reference; kept by D-035 as an arm-level aggregate bearing on shift vs weaker clock) |
+| `settings` | estimator, mesor source, plausibility window |
+
+Per-animal times stay inside the site.
 
 ## 5. Site policy schema (`policy/`)
 
@@ -272,7 +351,7 @@ is learned, would make per-gene checks impossible before submission.
 | `reml_hksj` | `de_meta` | `per_site_summary` | REML τ² and the HKSJ scale use each site's (y, SE) |
 | `v2` | `de_meta` | `per_site_summary` | moderates φ = Q/(k−1) |
 | `v3` | `de_meta` | `per_site_summary` | each gene's restricted likelihood over the τ² grid |
-| `clock_plane` | `clock_plane` | `per_site_summary` | D-031's per-site outputs (chord, shift, R²) |
+| `clock_plane` | `clock_plane` | `per_site_summary` | the §4.1 `ClockSummary` (chord and its covariance, shift, R², readings, noise), and for (B) the per-arm `AbsoluteSummary`: arm-level aggregates of one site (D-031, D-035) |
 | `fedavg` | `fedavg_classifier` | `model_update` | n_k required (D-017) |
 
 A leave-one-mission-out run is the same method on fewer clients. It needs nothing new from any
@@ -509,7 +588,13 @@ the policy check reads. Format: YAML or JSON, one document per job.
 - **`fedavg_classifier`:** every client result carries `FLMetaKey.NUM_STEPS_CURRENT_ROUND = n_k`
   (training samples this round). The client also declares n_k in its manifest. The server-side check
   fails the round if a result lacks it, rather than letting FLARE fall back to 1.0 (D-017).
-- **`clock_plane`:** D-031's whitelist of per-site outputs, as `per_site_summary`.
+  - **Implemented (WS-11): the client side.** `fedkg_spacebio.federation.fedavg_client.fedavg_result`
+    builds every FedAvg result and refuses an n_k that FLARE 2.9.1 would silently replace with 1.0
+    (missing/None, bool, non-numeric including strings, non-finite, ≤ 0). `require_n_k` is the
+    same check on a received result. Equal weighting is sent as an explicit 1 per client.
+  - **Not yet: the server-side check** that fails the round. It needs a custom server aggregator
+    and is planned with the masked-sum server path (WS-13), which can call `require_n_k`.
+- **`clock_plane`:** the §4.1 whitelists, as `per_site_summary`.
 
 ### 6.3 `secure_sum`: simulated secure aggregation
 
@@ -617,6 +702,9 @@ run used can be audited.
 | `results.read` | `release_id`; `select`: `top` (with `sort_by`, `n`) or `genes` | `method`, `stratum`, `k_by_gene`, rows (`ncbi_gene`, `symbol`, `estimate`, `se`, `p`, `q`), `methods_run`, `methods_refused` (method → decision ID), `notes` (the D-029 caveats that apply to this release) | NCBI Gene CURIEs, release ID, decision IDs |
 | `kg.query` | `template` (named, from an allow-list) and its parameters | `rows` of nodes and edges, `cypher_sha256`, `kg_version` | node CURIEs, composite edge keys (§1) |
 
+- **`sites.list`** takes `policy_id` and most fields from the manifest (§3), and
+  `inclusion_flags_sha256` from the site's latest summary metadata (§4), computed with
+  `sites.inclusion.inclusion_flags_sha256`. `tissue_uberon` isn't in the manifest yet (§3 TODO).
 - **`job.submit`** refuses a spec whose `policy_decision` is missing, isn't `allow`, or doesn't
   match the spec's hash. In `replay` mode it returns the recorded release for an identical spec,
   and refuses if none exists.

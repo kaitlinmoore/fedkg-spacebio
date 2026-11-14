@@ -73,6 +73,11 @@ whitelists:
 
 No per-sample value, sample name or expression value leaves. The chord is two numbers per site,
 an arm-level aggregate (D-030 list, extended in the WS-09 plan approval).
+
+Output level (CONTRACTS §5.1–§5.2): both ``ClockSummary`` and (B)'s ``AbsoluteSummary`` are
+``per_site_summary``. They reveal arm-level aggregates of one site, so a site policy that allows
+only masked contributions refuses the clock diagnostic. The field-by-field contract is CONTRACTS
+§4.1, and ``tests/test_contracts.py`` checks that it lists every whitelisted field.
 """
 
 from __future__ import annotations
