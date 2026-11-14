@@ -1,0 +1,24 @@
+# CONTRACTS §6.4: a FedAvg job (phase 3; synthetic sites). Declares n_k weighting explicitly.
+schema: job-spec/1
+job_id: "job:FAKE-0003"
+task: fedavg_classifier
+question: "Flight vs ground from liver expression, leave-one-site-out."
+stratum: iss
+clients: [FAKE-SITE-1, FAKE-SITE-2, FAKE-SITE-3]
+methods: [fedavg]
+counts_variant: standard
+inclusion: {rule: mean10_finite, min_sites_per_gene: all}
+gene_plan: {ref: "plans/job-FAKE-0003/gene_plan.csv", sha256: "FAKE-sha256-0009"}
+genes_exclude: null
+outputs: {FAKE-SITE-1: model_update, FAKE-SITE-2: model_update, FAKE-SITE-3: model_update}
+aggregation: {strategy: plain}
+weighting: {scheme: sample_count}      # each client sends NUM_STEPS_CURRENT_ROUND = n_k
+rounds: 20
+split: {scheme: loso, folds_ref: "splits/FAKE-folds.json", sha256: "FAKE-sha256-0010"}
+contact_windows: null
+provenance: {kg_version: "SPOKE-GeneLab v0.3.1+20260311", census_access_date: 2026-11-12,
+             annotation_sha256: "FAKE-sha256-0004",
+             manifest_sha256: {FAKE-SITE-1: "FAKE-sha256-0016", FAKE-SITE-2: "FAKE-sha256-0017",
+                               FAKE-SITE-3: "FAKE-sha256-0018"},
+             inclusion_flags_sha256: {}}
+policy_decision: null                  # not yet checked

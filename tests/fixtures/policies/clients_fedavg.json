@@ -1,0 +1,23 @@
+{
+ "_note": "WS-02's synthetic FedAvg sites (federation/synthetic.py: 400/150/50 samples), named FAKE-SITE-n as in CONTRACTS \u00a76.4. n_k is the training sample count each client declares (CONTRACTS \u00a73, D-017).",
+ "clients": [
+  {
+   "client": "FAKE-SITE-1",
+   "site": "FAKE-SITE-1",
+   "stratum": "iss",
+   "n_k": 400
+  },
+  {
+   "client": "FAKE-SITE-2",
+   "site": "FAKE-SITE-2",
+   "stratum": "iss",
+   "n_k": 150
+  },
+  {
+   "client": "FAKE-SITE-3",
+   "site": "FAKE-SITE-3",
+   "stratum": "iss",
+   "n_k": 50
+  }
+ ]
+}

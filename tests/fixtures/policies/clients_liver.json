@@ -1,0 +1,54 @@
+{
+ "_note": "The 7 liver FLARE clients (CONTRACTS \u00a75.5: real client names). n per arm are animal counts from the public census (docs/census-liver.md). Tests write minimal manifests from this list; policy_id comes from the profile under test.",
+ "clients": [
+  {
+   "client": "SpaceX-4",
+   "site": "SpaceX-4",
+   "stratum": "iss",
+   "n_flight": 8,
+   "n_ground": 8
+  },
+  {
+   "client": "SpaceX-8",
+   "site": "SpaceX-8",
+   "stratum": "iss",
+   "n_flight": 6,
+   "n_ground": 6
+  },
+  {
+   "client": "SpaceX-13-ISST",
+   "site": "SpaceX-13",
+   "stratum": "iss",
+   "n_flight": 10,
+   "n_ground": 10
+  },
+  {
+   "client": "SpaceX-16-ISST",
+   "site": "SpaceX-16",
+   "stratum": "iss",
+   "n_flight": 20,
+   "n_ground": 20
+  },
+  {
+   "client": "SpaceX-13-LAR",
+   "site": "SpaceX-13",
+   "stratum": "earth",
+   "n_flight": 10,
+   "n_ground": 9
+  },
+  {
+   "client": "SpaceX-16-LAR",
+   "site": "SpaceX-16",
+   "stratum": "earth",
+   "n_flight": 15,
+   "n_ground": 15
+  },
+  {
+   "client": "SpaceX-21",
+   "site": "SpaceX-21",
+   "stratum": "earth",
+   "n_flight": 9,
+   "n_ground": 9
+  }
+ ]
+}

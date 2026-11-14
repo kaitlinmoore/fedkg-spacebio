@@ -1,0 +1,31 @@
+# CONTRACTS §6.4: the restricted-profile job allowed after example A (§5.5). Mock IDs and hashes.
+schema: job-spec/1
+job_id: "job:FAKE-0002"
+task: de_meta
+question: "Which liver genes change with spaceflight across ISS missions?"
+stratum: iss
+clients: [SpaceX-4, SpaceX-8, SpaceX-13-ISST, SpaceX-16-ISST]
+methods: [fe]
+counts_variant: standard
+inclusion: {rule: mean10_finite, min_sites_per_gene: all}
+gene_plan: {ref: "plans/job-FAKE-0002/gene_plan.csv", sha256: "FAKE-sha256-0003"}
+genes_exclude: null
+outputs:
+  SpaceX-4: masked_contribution
+  SpaceX-8: masked_contribution
+  SpaceX-13-ISST: masked_contribution
+  SpaceX-16-ISST: masked_contribution
+aggregation: {strategy: secure_sum, fixed_point_bits: 32, modulus_bits: 64}
+weighting: {scheme: inverse_variance}
+rounds: 1
+split: null
+contact_windows: null
+provenance:
+  kg_version: "SPOKE-GeneLab v0.3.1+20260311"
+  census_access_date: 2026-11-12
+  annotation_sha256: "FAKE-sha256-0004"
+  manifest_sha256: {SpaceX-4: "FAKE-sha256-0005", SpaceX-8: "FAKE-sha256-0006",
+                    SpaceX-13-ISST: "FAKE-sha256-0007", SpaceX-16-ISST: "FAKE-sha256-0008"}
+  inclusion_flags_sha256: {SpaceX-4: "FAKE-sha256-0012", SpaceX-8: "FAKE-sha256-0013",
+                           SpaceX-13-ISST: "FAKE-sha256-0014", SpaceX-16-ISST: "FAKE-sha256-0015"}
+policy_decision: "trace:FAKE-0001/dec/3"

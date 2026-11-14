@@ -1,0 +1,20 @@
+# INVENTED FOR THE TESTBED. No real mission declared this policy; it exists to test enforcement (CONTRACTS §5).
+schema: site-policy/1
+policy_id: "pol:FAKE-SITE-3:1"
+site: FAKE-SITE-3
+effective: 2026-11-16
+default: deny
+rules:
+  - key: analyses
+    kind: analyses
+    tasks: [fedavg_classifier]
+    methods: "*"
+    reason: "Federated classifier training only (synthetic FedAvg site)."
+  - key: release
+    kind: release
+    outputs: [site_metadata, model_update]
+    reason: "Model updates with n_k may leave the site."
+  - key: dp
+    kind: dp
+    required: false
+    reason: "No differential-privacy requirement."
