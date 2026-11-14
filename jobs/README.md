@@ -66,3 +66,17 @@ Inputs (phase3a_meta): `$FEDKG_WORKDIR/census/` (WS-06), count matrices and full
 (`flare/`, `central/`, `check3.json`), `$FEDKG_WORKDIR/results/phase3a/check2/` and
 `$FEDKG_WORKDIR/results/phase3a/sensitivity.csv`. The stable per-gene tables are
 `flare/<variant>/per_gene.csv.gz` with `per_gene.schema.json` (CONTRACTS.md §4).
+
+### `phase3a_clock/`: Q-11 circadian phase diagnostic (WS-09)
+Not a FLARE job: it runs in-process. Each client's data comes only through `load_site`, and
+only a whitelisted summary leaves. See
+[`docs/phase3a-time-of-day.md`](../docs/phase3a-time-of-day.md).
+
+```bash
+# WSL/Ubuntu, after `fedkg`
+uv run python jobs/phase3a_clock/reference.py   # reference fit and panel (GSE11923 + GSE54651)
+uv run python jobs/phase3a_clock/validate.py    # estimator validation (reference + synthetic)
+uv run python jobs/phase3a_clock/run_sites.py   # site-side summaries, one per client
+uv run python jobs/phase3a_clock/report.py      # server: table, site comparisons, power
+uv run python jobs/phase3a_clock/absolute.py    # exploratory absolute phase, with its stop rule
+```
