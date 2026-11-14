@@ -29,7 +29,7 @@ conversion rule says how to make them CURIEs.
 |---|---|---|---|
 | Study | `OSD-<n>` | `Study.identifier`, `OSD-<n>` | none |
 | Comparison (KG "Assay") | `OSD-<n>-<32 hex>` | `Assay.identifier` | none. An ordered two-group comparison, **not** an OSDR assay. The OSDR assay name is `Assay.name`. |
-| Mission | KG slug, e.g. `SpaceX-21` | `Mission.identifier` | none. Treat as opaque; the separators are inconsistent (`Soyuz_TMA-14`). |
+| Mission | KG slug, e.g. `SpaceX-21` | `Mission.identifier` | none. Treat as opaque; the separators are inconsistent (`Soyuz_TMA-14`). Citable: `kg.query` lists the slugs it returns in `ids` (§7; D-038). |
 | Gene, mouse/other organism | `NCBIGene:<n>` | `MGene.identifier`, bare digits as a string | prefix `NCBIGene:` |
 | Gene, human reference | `NCBIGene:<n>` | `Gene.identifier`, bare digits as a string | prefix `NCBIGene:` |
 | Tissue | `UBERON:NNNNNNN` | `Anatomy.identifier` / `Assay.material_id_*` | none |
@@ -65,10 +65,25 @@ Mocks put `FAKE` in place of the timestamp and random part (`job:FAKE-0001`).
 | Decision | `<trace id>/dec/<n>`; `dec:<job suffix>-<n>` when the policy check runs outside an agent | `trace:…/dec/2` | the policy check, or the agent for its own decisions (§8) |
 | Spec check (rule ID) | `spec#<check>`: a check of the job spec itself, run before any policy (§5.4) | `spec#clients-known` | the policy evaluator |
 | Release log | `<profile>-<n>`; a reset starts `<n+1>` (§5.3) | `restricted-1` | the release-log store |
-| KG edge (composite key) | `kgedge:<REL_TYPE>\|<start id>\|<end id>`, with our CURIE forms | `kgedge:IS_ORTHOLOG_MGiG\|NCBIGene:<n>\|NCBIGene:<n>` | the `kg.query` tool (§7) |
+| KG edge (composite key) | `kgedge:<REL_TYPE>\|<start id>\|<end id>`, with our CURIE forms, in the edge's own direction | `kgedge:IS_ORTHOLOG_MGiG\|NCBIGene:<n>\|NCBIGene:<n>` | the `kg.query` tool (§7) |
 
-The KG has no stable edge IDs, so edges are cited by this composite key. It's unique only if the
-KG holds at most one edge of a type between two nodes. Check that before relying on it (WS-14).
+The KG has no stable edge IDs, so edges are cited by this composite key. The key is unique only if
+the KG holds at most one edge of a type between two nodes. WS-14 checked this live on 2026-11-14
+for every edge type `kg.query` returns, and found no duplicate (type, start, end) pair. `identifier`
+is also unique within `MGene`, `Gene` and `Assay`, and no identifier contains `|`.
+
+| Edge type | Start → end | Edges | Duplicated pairs |
+|---|---|---:|---:|
+| `MEASURED_DIFFERENTIAL_EXPRESSION_ASmMG` | comparison → gene | 50,208,066 | 0 |
+| `IS_ORTHOLOG_MGiG` | mouse gene → human gene | 121,153 | 0 |
+| `PERFORMED_SpAS` | study → comparison | 13,146 | 0 |
+| `INVESTIGATED_ASiA` | comparison → tissue (UBERON) | 7,214 | 0 |
+| `INVESTIGATED_ASiCT` | comparison → cell type (CL); counted, not returned | 1,240 | 0 |
+| `CONDUCTED_MIcS` | mission → study | 127 | 0 |
+
+A key is unique **within one graph snapshot**. Comparison IDs are an MD5 of the comparison's
+metadata, so a release that changes metadata changes them. A key therefore means something only
+together with the trace's `kg_version` (§7).
 
 ## 2. Census table (`census/`)
 
@@ -842,7 +857,7 @@ run used can be audited.
 | `job.submit` | job spec with `policy_decision`; `mode`: `replay` · `live` | `job_id`, `run_id`, `mode`, `status` | job and run IDs |
 | `job.status` | `job_id` | `status` (`queued` · `running` · `done` · `failed`), `release_ids`, `started`, `finished`, `log_tail` | job, run and release IDs |
 | `results.read` | `release_id`; `select`: `top` (with `sort_by`, `n`) or `genes` | `method`, `stratum`, `k_by_gene`, rows (`ncbi_gene`, `symbol`, `estimate`, `se`, `p`, `q`), `methods_run`, `methods_refused` (method → decision ID), `notes` (the D-029 caveats that apply to this release) | NCBI Gene CURIEs, release ID, decision IDs |
-| `kg.query` | `template` (named, from an allow-list) and its parameters | `rows` of nodes and edges, `cypher_sha256`, `kg_version` | node CURIEs, composite edge keys (§1) |
+| `kg.query` | `template` (named, from an allow-list) and its parameters (§7.1) | per template (§7.1); always `params`, `notes`, `cypher_sha256`, `kg_version` | node CURIEs, OSD accessions, comparison IDs, mission slugs, composite edge keys (§1); never symbols |
 
 - **`sites.list`** takes `policy_id` and most fields from the manifest (§3), and
   `inclusion_flags_sha256` from the site's latest summary metadata (§4), computed with
@@ -851,11 +866,115 @@ run used can be audited.
   match the spec's hash. In `replay` mode it returns the recorded release for an identical spec,
   and refuses if none exists.
 - **`results.read`** never returns per-site columns from a release made under `secure_sum`.
-- **`kg.query`** runs only named templates, not free Cypher. Demo templates:
-  `gene_human_orthologs` (MGene → `IS_ORTHOLOG_MGiG` → Gene) and `gene_de_comparisons` (comparisons
-  with a DE edge to the gene, with their study and tissue). Calls go to the hosted mcp-genelab
-  endpoint and are cached.
+- **`kg.query`** runs only named templates, not free Cypher (§7.1).
 - Symbols are display labels and never count as evidence.
+
+### 7.1 `kg.query` (implemented, WS-14; D-038)
+
+**Allow-list:** `src/fedkg_spacebio/agent/kg_templates.json`. Each template's exact Cypher and
+its `cypher_sha256` are checked when the file loads. `kg_fingerprint` is internal, and the tool
+refuses it. The tool sends the Cypher through mcp-genelab's `query` tool at
+`https://visualization.osdr.nasa.gov/kg/mcp`.
+
+**Inputs.** Unknown templates or parameters are refused.
+
+| Template | Parameters |
+|---|---|
+| `gene_human_orthologs` | `gene`: a mouse gene as `NCBIGene:<n>`, a string. Ensembl IDs, symbols, `FAKE:` IDs and integers are refused (the KG matches an integer to nothing, silently). |
+| `gene_de_comparisons` | `gene` as above; `tissue_group`: `any` (default) or `liver`; `limit`: integer 1–50, default 25 |
+
+**Errors** (`ok: false`, empty `data` and `ids`):
+- `invalid_template`, `invalid_param`;
+- `not_found`: gene not in the KG;
+- `wrong_taxon`: not a mouse gene;
+- `cache_miss`: offline and not cached;
+- `cache_corrupt`;
+- `transport_error`;
+- `kg_error`: the KG answered with something other than rows.
+
+A mouse gene with no orthologs or no rows is `ok`, with an empty list.
+
+**`gene_human_orthologs` `data`:**
+- `gene`, `gene_symbol`;
+- `orthologs[]` of `{gene, gene_symbol, edge}`, sorted by gene number;
+- `n_orthologs`, `one_to_many`.
+
+Every ortholog is returned. None is ranked as "best", because the KG gives no basis for it.
+
+**`gene_de_comparisons` `data`:**
+- `gene`, `gene_symbol`;
+- `scope: "flight_vs_control_strict"`;
+- `tissue_group`, `tissue_terms` (the liver list, or null for `any`);
+- `limit`, `truncated`;
+- `summary`, `rows[]`.
+
+- **Scope:** comparisons with a DE edge to the gene where side 1 is `Space Flight` and side 2 is
+  `Ground Control`, `Vivarium Control` or `Basal Control`, the material is the same on both
+  sides, and every other factor is identical. Non-strict edges are only counted.
+- **Each row:**
+  - `comparison`, `study`, `missions`, `tissues`, `material_id`;
+  - `material_name` (display), `technology`, `control`, `factors_1`, `factors_2`;
+  - `log2fc` and `adj_p` as stored;
+  - `relation_to_inputs`, `is_liver`, `repeat_of`;
+  - `edges`: `de`, `performed`, `investigated[]`, `conducted[]`.
+- **Sort:** (`adj_p`, `comparison`). This is a display order, not a ranking of evidence.
+- **`relation_to_inputs`** (first match wins):
+  - `phase3a_input`: OSD-47, -48, -137, -245, -379, -463;
+  - `shares_animals_with_input`: OSD-168;
+  - `same_mission_as_input`: a mission of SpaceX-4, -8, -13, -16 or -21. These may share
+    animals with the inputs; the KG can't tell;
+  - `other_mission`;
+  - `no_mission`: unknown relation, not counted.
+
+  Only `other_mission` rows are outside our inputs, and even they mean "reported changed in that
+  comparison", never replication (D-029).
+- **`is_liver`:** a tissue term or the material is in the explicit list `UBERON:0002107`,
+  `UBERON:0006727`, `UBERON:0001115`.
+- **`repeat_of`:** the earlier returned comparison with the same (study, factors, material,
+  log2fc, adj_p). OSD-462 reports each result under three comparison IDs.
+- **Order of operations:** `tissue_group` filters the rows, then `limit` caps them.
+- **`summary`:** describes the gene across all strict rows, before the filter and the cap.
+  - `n_strict` (the KG's count), `n_nonstrict`, `n_repeats`;
+  - `n_studies`, `n_strict_by_relation` (all five keys), `n_liver`. These count each repeat
+    group once;
+  - `n_in_tissue_group`, `n_returned`.
+
+**`ids`:**
+- the gene;
+- for each **returned** row: comparison, study, tissue terms (UBERON, or the CL material when
+  there's no Anatomy edge), mission slugs and every edge key;
+- the liver terms when `tissue_group` is `liver`.
+
+Rows cut by `limit` or the tissue filter contribute nothing.
+
+**Edge keys (§1):**
+- `kgedge:IS_ORTHOLOG_MGiG|<mouse gene>|<human gene>`;
+- `kgedge:MEASURED_DIFFERENTIAL_EXPRESSION_ASmMG|<comparison>|<gene>`;
+- `kgedge:PERFORMED_SpAS|<study>|<comparison>`;
+- `kgedge:INVESTIGATED_ASiA|<comparison>|<UBERON>`;
+- `kgedge:CONDUCTED_MIcS|<mission>|<study>`.
+
+**`notes`:** fixed strings, including:
+- "A DE edge means the comparison reported the gene at adj_p < 0.1 (the KG's storage filter). It
+  is not an effect size to pool and not a replication."
+- "`same_mission_as_input` studies may share animals with the inputs."
+
+**`kg_version`:** `SPOKE-GeneLab v0.3.1+20260311 (assumed); fp:<first 12 hex of the fingerprint>`.
+- The release string is assumed, because the graph exposes none.
+- The fingerprint is the SHA-256 of nine graph counts and a checksum over comparison IDs. It's
+  taken live once per client and recorded in the cache manifest.
+- It misses a rerun that changes edge values but keeps every count and ID.
+
+**`cache`:**
+- **Key:** `sha256:` plus SHA-256 of the canonical JSON of `{template, kg_params,
+  cypher_sha256, fingerprint_sha256}`. `kg_params` is what was sent, e.g. `{"gene": "13170"}`.
+  Canonical JSON means sorted keys, no whitespace, ECMAScript number format.
+- **What's stored:** the raw KG rows, in `$FEDKG_WORKDIR/cache/kg/templates/`. One entry serves
+  every `tissue_group` and `limit`.
+- **Offline mode** (`FEDKG_KG_OFFLINE=1`): serves only from the cache, using the manifest's
+  fingerprint. A miss is `cache_miss`.
+- **Pre-warm:** `python -m fedkg_spacebio.agent.kg_prewarm`. It takes the top 25 ISS FE hits by
+  `fe_q`, from the results table's `ncbi_gene` column.
 
 ## 8. Agent trace format (`agent/`)
 

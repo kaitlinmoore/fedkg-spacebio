@@ -37,9 +37,13 @@ packages = ["src/fedkg_spacebio"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# Slow tests (FLARE simulator runs) are skipped by default; run them with `uv run pytest -m slow`.
-addopts = "-ra -m 'not slow'"
-markers = ["slow: runs the FLARE simulator end to end (about a minute); skipped by default"]
+# Slow tests (FLARE simulator runs) and live tests (the hosted GeneLab KG) are skipped by default;
+# run them with `uv run pytest -m slow` or `uv run pytest -m live`.
+addopts = "-ra -m 'not slow and not live'"
+markers = [
+    "slow: runs the FLARE simulator end to end (about a minute); skipped by default",
+    "live: calls the hosted GeneLab KG over the network; skipped by default",
+]
 
 [tool.ruff]
 line-length = 100

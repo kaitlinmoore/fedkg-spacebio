@@ -1,0 +1,13 @@
+{
+ "template": "gene_de_comparisons",
+ "kg_params": {
+  "gene": "999999999"
+ },
+ "cypher_sha256": "68be204cbd31fe9fbcc83f238c0113ee820c10081d7f2860b1396f8cdc8730ff",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "kg_fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd",
+ "total_rows": 0,
+ "rows_canonical_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+ "rows": []
+}

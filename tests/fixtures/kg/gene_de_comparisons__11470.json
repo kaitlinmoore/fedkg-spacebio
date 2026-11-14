@@ -1,0 +1,22 @@
+{
+ "template": "gene_de_comparisons",
+ "kg_params": {
+  "gene": "11470"
+ },
+ "cypher_sha256": "68be204cbd31fe9fbcc83f238c0113ee820c10081d7f2860b1396f8cdc8730ff",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "kg_fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd",
+ "total_rows": 1,
+ "rows_canonical_sha256": "9b49e512ae8e0d4a22f8f6b9db55a64d11cf99fb60003cbed16f63eb690be4b2",
+ "rows": [
+  {
+   "mgene": "11470",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Actl7a",
+   "n_strict": 0,
+   "n_nonstrict": 0,
+   "rows": []
+  }
+ ]
+}

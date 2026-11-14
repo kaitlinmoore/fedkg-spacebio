@@ -1,0 +1,267 @@
+{
+ "template": "gene_de_comparisons",
+ "kg_params": {
+  "gene": "99412"
+ },
+ "cypher_sha256": "68be204cbd31fe9fbcc83f238c0113ee820c10081d7f2860b1396f8cdc8730ff",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "kg_fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd",
+ "total_rows": 1,
+ "rows_canonical_sha256": "4474cc40f64bb63d0e91ac151e36ec1e4d78ff3bbd4f3e080d203271d69c2936",
+ "rows": [
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "n_strict": 11,
+   "n_nonstrict": 44,
+   "rows": [
+    {
+     "study": "OSD-666",
+     "comparison": "OSD-666-a196be85700ef97ac35de79c5596dfed",
+     "tissues": [
+      "UBERON:0001377"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0001377",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.19353085187422,
+     "material_name": "quadriceps femoris",
+     "adj_p": 0.001087560644203
+    },
+    {
+     "study": "OSD-576",
+     "comparison": "OSD-576-bfe00e1f4251c7a07570579b404fd68f",
+     "tissues": [
+      "UBERON:0001385"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0001385",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.226136948357377,
+     "material_name": "tibialis anterior",
+     "adj_p": 0.0013012994481701
+    },
+    {
+     "study": "OSD-506",
+     "comparison": "OSD-506-ff2cb79530085bee76443e41deee2da4",
+     "tissues": [
+      "UBERON:0002106"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0002106",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.258079790248854,
+     "material_name": "spleen",
+     "adj_p": 0.0052270016046835
+    },
+    {
+     "study": "OSD-690",
+     "comparison": "OSD-690-d89cbb20c4b7855f3f955e4adbb6515d",
+     "tissues": [
+      "UBERON:0002371"
+     ],
+     "factors_2": [
+      "Nrf2KO",
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Nrf2KO",
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-14"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0002371",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -0.516334935873267,
+     "material_name": "bone marrow",
+     "adj_p": 0.0081275937483018
+    },
+    {
+     "study": "OSD-770",
+     "comparison": "OSD-770-f57b883af759b41d3e1778be93fba1cf",
+     "tissues": [
+      "UBERON:0001389"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0001389",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -0.492709639529629,
+     "material_name": "soleus",
+     "adj_p": 0.0083917615647153
+    },
+    {
+     "study": "OSD-137",
+     "comparison": "OSD-137-285673cfa3368128c2531953652bb553",
+     "tissues": [
+      "UBERON:0002107"
+     ],
+     "factors_2": [
+      "Basal Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-8"
+     ],
+     "control": "Basal Control",
+     "material_id": "UBERON:0002107",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.338743505305529,
+     "material_name": "liver",
+     "adj_p": 0.0340512011919683
+    },
+    {
+     "study": "OSD-665",
+     "comparison": "OSD-665-a4167284b0876ec8d3daba0d0e4a567f",
+     "tissues": [
+      "UBERON:0001386"
+     ],
+     "factors_2": [
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0001386",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.146067587160466,
+     "material_name": "extensor digitorum longus",
+     "adj_p": 0.0365722785131306
+    },
+    {
+     "study": "OSD-462",
+     "comparison": "OSD-462-61b5e66c2d52728cf4255ae74c2d6766",
+     "tissues": [
+      "UBERON:0004538"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0004538",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.185666351742456,
+     "material_name": "left kidney",
+     "adj_p": 0.0369300570194094
+    },
+    {
+     "study": "OSD-462",
+     "comparison": "OSD-462-71d05a80855dfd808ded2fb1630fc770",
+     "tissues": [
+      "UBERON:0004538"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0004538",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.185666351742456,
+     "material_name": "left kidney",
+     "adj_p": 0.0369300570194094
+    },
+    {
+     "study": "OSD-462",
+     "comparison": "OSD-462-b6ad6f9f0f194d75f3dcf89d59c7cdf9",
+     "tissues": [
+      "UBERON:0004538"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0004538",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 0.185666351742456,
+     "material_name": "left kidney",
+     "adj_p": 0.0369300570194094
+    },
+    {
+     "study": "OSD-25",
+     "comparison": "OSD-25-e4263b3370f6c7cfbb04a37d79742f3f",
+     "tissues": [
+      "UBERON:0002107"
+     ],
+     "factors_2": [
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "STS-135"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0002107",
+     "technology": "DNA microarray",
+     "log2fc": 0.278437750833572,
+     "material_name": "liver",
+     "adj_p": 0.0461529266699694
+    }
+   ]
+  }
+ ]
+}

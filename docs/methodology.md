@@ -494,6 +494,83 @@ exists, so a policy requiring DP refuses every job.
 ## 8. Agent and grounding
 TODO: tools, planning, grounding rule and checker, trace format.
 
+### 8.1 KG explanation: the `kg.query` tool (WS-14; D-033, D-038)
+
+**What it does.** For a gene the federated analysis reports, the tool can answer two questions:
+- What are its human orthologs?
+- In which other flight-vs-control comparisons was the gene reported changed?
+
+It asks the hosted SPOKE-GeneLab knowledge graph, through the `mcp-genelab` server's read-only
+`query` tool. We wrote the two Cypher templates and the code around them: the client,
+validation, labels, cache and ID listing. The graph, its contents and the server belong to
+SPOKE-GeneLab and SDSC. Contract: `CONTRACTS.md` §7.1.
+
+**Named templates, not agent-written Cypher.** The agent picks a template and a gene; it can't
+write a query. Every query that can run was designed and checked by hand, and its text is pinned
+by a hash.
+- *Alternative: let the model write Cypher, as the connector allows.* Rejected. Nobody would have
+  reviewed what each query means: a confounded pair, or a mirror-image contrast counted twice.
+- *Alternative: the connector's specialist tools.* Rejected. They all start from a comparison;
+  both of our questions start from a gene.
+
+**Strict comparisons only.** A comparison is listed only if:
+- it is flight vs a ground, vivarium or basal control;
+- it uses the same tissue on both sides;
+- every other factor is identical.
+
+Without this rule, one gene returned 38–128 comparisons, mostly mismatched pairs inside our own
+input studies, e.g. flight at one age and tissue prep vs ground at another. The cost is that
+some valid designs drop out: location-aware ISS-terminal contrasts and gravity-labelled studies.
+They're counted (`n_nonstrict`), not hidden. Some comparisons also have control labels the scope
+doesn't match (`Ground Control Rerun`, lower-case `Ground control`), so they're missed entirely.
+
+**"Not our input study" doesn't mean "independent".** Each row is labelled with its relation to
+our phase 3a inputs:
+- an input study;
+- OSD-168, which shares animals with two inputs;
+- another study from an input mission;
+- another mission;
+- no mission recorded.
+
+Rodent Research missions usually take many tissues from the same animals. For the six genes
+tested in WS-14, 64 of 89 strict rows came from other tissues of our own missions, and the KG
+can't show whether animals are shared. Only "another mission" rows are outside our inputs, and
+even they mean "this comparison reported the gene changed": not a replication, and not an
+effect size to pool. The KG keeps a DE edge only when adj_p < 0.1 and stores no standard error
+(D-029).
+
+**Liver is an explicit list of three UBERON terms:** liver, left lateral lobe and left lobe.
+- *Alternative: reason over the UBERON hierarchy at query time.* Rejected. It needs another
+  source, and a literal list can be audited; WS-14 checked it covers every liver material in the
+  KG.
+
+**Orthologs: all of them.** 1,607 mouse genes have more than one human ortholog (up to 26). The
+KG gives no basis for ranking them, so the tool returns every one, sets `one_to_many`, and a
+claim citing one should say it's one of k.
+
+**Citing edges.** The KG has no edge IDs, so the tool builds a key from (type, start, end). WS-14
+checked that no two edges of the same type join the same pair, for every type used, including
+all 50.2 million DE edges.
+
+**Version.** The graph exposes no release string. The tool records the assumed release plus a
+fingerprint: nine graph counts and a checksum over comparison IDs. The fingerprint is part of
+the cache key, so a changed graph misses the cache rather than serving stale rows. Its limit: a
+rerun that changes edge values but keeps every count and ID would go unnoticed.
+
+**Cache and offline replay.** Raw KG rows are cached on disk, keyed by (template, parameters
+sent, Cypher hash, fingerprint). In offline mode the tool serves only from the cache, and a miss
+is an error, so the demo can't silently depend on the endpoint being up. A pre-warm command
+caches the top 25 ISS fixed-effect hits.
+- *Alternative: `requests-cache`.* Rejected. It's a new dependency, and its store hides the
+  per-request provenance we want to cite.
+- *Alternative: the `mcp` Python SDK.* Rejected. It's a new dependency with an async stack, for
+  four request types.
+
+**Traps found on the wire (each has a test):**
+- The server reports errors as prose with `isError: false`.
+- The reply's first line, `total_rows:`, also contains `rows:`.
+- A gene ID passed as an integer silently matches nothing.
+
 ## 9. Evaluation
 TODO: metrics, uncertainty, what counts as federation "helping."
 

@@ -1,0 +1,22 @@
+{
+ "template": "kg_fingerprint",
+ "kg_params": {},
+ "cypher_sha256": "a1a5b8e40eb9916c4a0b494a87a942074439512fad2019ed66427085cb8298ac",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "total_rows": 1,
+ "rows": [
+  {
+   "studies": 212,
+   "study_num_max": 937,
+   "assays": 13146,
+   "assay_md5_sum48": 1862439281406715662,
+   "mgenes": 138736,
+   "genes": 30009,
+   "missions": 42,
+   "de_edges": 50208066,
+   "ortholog_edges": 121153
+  }
+ ],
+ "fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd"
+}

@@ -1,0 +1,21 @@
+{
+ "template": "gene_human_orthologs",
+ "kg_params": {
+  "gene": "381148"
+ },
+ "cypher_sha256": "df8f836e35dadbe1389be4b364c59af6666f770338b223ecabb8af457f048449",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "kg_fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd",
+ "total_rows": 1,
+ "rows_canonical_sha256": "ea68e102e17766244a3a5faf9f5096a409defe195a16d5689b3380eacef2977e",
+ "rows": [
+  {
+   "mgene": "381148",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Prob1",
+   "gene": "389333",
+   "gene_symbol": "PROB1"
+  }
+ ]
+}

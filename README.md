@@ -56,7 +56,7 @@ Existing knowledge-graph agent tools (e.g., `mcp-genelab`) query open, centraliz
 
 ## Data and knowledge sources
 
-All data and graph releases are downloaded locally and **never committed**. Versions and access dates are recorded here as they're pulled.
+All data and graph releases are downloaded locally and **never committed**. The one exception is `tests/fixtures/kg/`: small recorded responses from the public GeneLab KG (one gene per file, with source and date), so the KG tool's tests run offline. Versions and access dates are recorded here as they're pulled.
 
 | Source | Use | Access | Version / date |
 |---|---|---|---|
@@ -66,7 +66,7 @@ All data and graph releases are downloaded locally and **never committed**. Vers
 | NCBI GEO GPL1261 annotation | Affymetrix Mouse 430 2.0 probe set → NCBI Gene, for the list above | https://ftp.ncbi.nlm.nih.gov/geo/platforms/GPL1nnn/GPL1261/annot/GPL1261.annot.gz | Annotation date 2016-08-09; downloaded 2026-11-13; SHA-256 `394c103cf4ca99500d06369e4fb2b9b9bffc2c10fd3cbeb0b0d64c51c3fc95f8` |
 | GEO GSE11923 (Hughes et al. 2009) | Mouse-liver hourly time course: clock-gene peak times for the Q-11 phase diagnostic | https://ftp.ncbi.nlm.nih.gov/geo/series/GSE11nnn/GSE11923/matrix/GSE11923_series_matrix.txt.gz | Series matrix downloaded 2026-11-13; SHA-256 `2dd9f79ce8562155e003e43984e49b1ed8d190f4ac197f6d612274d21eab39ab` |
 | GEO GSE54651 (Zhang et al. 2014) | Mouse-liver RNA-seq every 6 h: clock-gene amplitudes on the RNA-seq scale for the Q-11 phase diagnostic | https://ftp.ncbi.nlm.nih.gov/geo/series/GSE54nnn/GSE54651/suppl/GSE54651_Liv_quant.txt.gz | `GSE54651_Liv_quant.txt.gz` downloaded 2026-11-13; SHA-256 `70f8e01c9e88a783f3090407f6dc1c64960e3a7904aa6570da3ef844ebe69e0a` |
-| SPOKE-GeneLab | Links OSDR experiments to a biomedical KG; human orthologs; CL/UBERON mapping | https://github.com/BaranziniLab/spoke_genelab | TODO |
+| SPOKE-GeneLab | Links OSDR experiments to a biomedical KG; human orthologs; CL/UBERON mapping | https://github.com/BaranziniLab/spoke_genelab | Queried through the hosted mcp-genelab endpoint (row below); fingerprint `f0045ca84ae8`, 2026-11-14 ([`CONTRACTS.md`](CONTRACTS.md) §7.1). License: the repository is BSD-3-Clause; data terms are not stated separately. Cited as its README asks: Rose PW et al., *NASA SPOKE-GeneLab Knowledge Graph* (2025), https://github.com/BaranziniLab/spoke_genelab; Nelson CA et al., *NASA GeneLab-Knowledge Graph Fabric Enables Deep Biomedical Analysis of Multi-Omics Datasets* (2025), https://ntrs.nasa.gov/citations/20250000723 |
 | mcp-genelab | Natural-language → Cypher over the GeneLab KG | Hosted: `https://visualization.osdr.nasa.gov/kg/mcp` · https://github.com/sbl-sdsc/mcp-genelab | Assumed KG v0.3.1+20260311 (not exposed live; see [`docs/kg-schema.md`](docs/kg-schema.md)) |
 | Monarch KG | Cross-species genes–phenotypes–diseases | https://data.monarchinitiative.org/monarch-kg | TODO (pinned release) |
 | PrimeKG (optional) | Disease and drug context, shares Mondo IDs with Monarch | https://github.com/mims-harvard/PrimeKG | TODO |

@@ -1,0 +1,112 @@
+{
+ "template": "gene_human_orthologs",
+ "kg_params": {
+  "gene": "319158"
+ },
+ "cypher_sha256": "df8f836e35dadbe1389be4b364c59af6666f770338b223ecabb8af457f048449",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "kg_fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd",
+ "total_rows": 14,
+ "rows_canonical_sha256": "44a5ecf8c986eded6cc31d9700f9c76a473ae9784c1ddfe7737f18ea9236f2a0",
+ "rows": [
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8294",
+   "gene_symbol": "H4C9"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8359",
+   "gene_symbol": "H4C1"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8360",
+   "gene_symbol": "H4C4"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8361",
+   "gene_symbol": "H4C6"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8362",
+   "gene_symbol": "H4C12"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8363",
+   "gene_symbol": "H4C11"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8364",
+   "gene_symbol": "H4C3"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8365",
+   "gene_symbol": "H4C8"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8366",
+   "gene_symbol": "H4C2"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8367",
+   "gene_symbol": "H4C5"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8368",
+   "gene_symbol": "H4C13"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "8370",
+   "gene_symbol": "H4C14"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "121504",
+   "gene_symbol": "H4-16"
+  },
+  {
+   "mgene": "319158",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "H4c9",
+   "gene": "554313",
+   "gene_symbol": "H4C15"
+  }
+ ]
+}

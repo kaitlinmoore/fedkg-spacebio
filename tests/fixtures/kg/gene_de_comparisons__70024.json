@@ -1,0 +1,303 @@
+{
+ "template": "gene_de_comparisons",
+ "kg_params": {
+  "gene": "70024"
+ },
+ "cypher_sha256": "68be204cbd31fe9fbcc83f238c0113ee820c10081d7f2860b1396f8cdc8730ff",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "kg_fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd",
+ "total_rows": 1,
+ "rows_canonical_sha256": "d4c9848ca1f9239516b8fd4e29997286593db9aa25640c0e85856cd836fda648",
+ "rows": [
+  {
+   "mgene": "70024",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Mcm10",
+   "n_strict": 12,
+   "n_nonstrict": 78,
+   "rows": [
+    {
+     "study": "OSD-515",
+     "comparison": "OSD-515-cc9b2bdf30f8a030d26aa9c16caa3aaf",
+     "tissues": [
+      "UBERON:0002370"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0002370",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -2.64924522764446,
+     "material_name": "thymus",
+     "adj_p": 1.09104595401814e-09
+    },
+    {
+     "study": "OSD-515",
+     "comparison": "OSD-515-79b621bb042221f4160c19eaa27ab36b",
+     "tissues": [
+      "UBERON:0002370"
+     ],
+     "factors_2": [
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0002370",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -2.09456128981374,
+     "material_name": "thymus",
+     "adj_p": 1.62261132558413e-05
+    },
+    {
+     "study": "OSD-506",
+     "comparison": "OSD-506-ff2cb79530085bee76443e41deee2da4",
+     "tissues": [
+      "UBERON:0002106"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0002106",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -1.60954635054914,
+     "material_name": "spleen",
+     "adj_p": 0.0001613426319979
+    },
+    {
+     "study": "OSD-48",
+     "comparison": "OSD-48-78339eb44e112247d0884d9dd11fbf66",
+     "tissues": [
+      "UBERON:0002107"
+     ],
+     "factors_2": [
+      "Ground Control",
+      "Carcass"
+     ],
+     "factors_1": [
+      "Space Flight",
+      "Carcass"
+     ],
+     "missions": [
+      "SpaceX-4"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0002107",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -1.27225459036472,
+     "material_name": "liver",
+     "adj_p": 0.0015182454093958
+    },
+    {
+     "study": "OSD-690",
+     "comparison": "OSD-690-d89cbb20c4b7855f3f955e4adbb6515d",
+     "tissues": [
+      "UBERON:0002371"
+     ],
+     "factors_2": [
+      "Nrf2KO",
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Nrf2KO",
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-14"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0002371",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -0.385907307554955,
+     "material_name": "bone marrow",
+     "adj_p": 0.0067882396692295
+    },
+    {
+     "study": "OSD-421",
+     "comparison": "OSD-421-ba86a10fdb67709b39a398993f2842d9",
+     "tissues": [
+      "UBERON:0002370"
+     ],
+     "factors_2": [
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-12"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0002370",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -2.23312754607058,
+     "material_name": "thymus",
+     "adj_p": 0.0158660666951157
+    },
+    {
+     "study": "OSD-667",
+     "comparison": "OSD-667-7cd4ba0483edcbc13ba8898125ee52fa",
+     "tissues": [
+      "UBERON:0001155"
+     ],
+     "factors_2": [
+      "p21-null",
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "p21-null",
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0001155",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -1.08413657879832,
+     "material_name": "colon",
+     "adj_p": 0.0245443947042909
+    },
+    {
+     "study": "OSD-770",
+     "comparison": "OSD-770-10b02918dd6677725691e274c83a7eaf",
+     "tissues": [
+      "UBERON:0001389"
+     ],
+     "factors_2": [
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-21"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0001389",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": 1.30897807784141,
+     "material_name": "soleus",
+     "adj_p": 0.0398814258060469
+    },
+    {
+     "study": "OSD-690",
+     "comparison": "OSD-690-f82a89dc82f2903149d2d11cbd6a130d",
+     "tissues": [
+      "UBERON:0002371"
+     ],
+     "factors_2": [
+      "Wild Type",
+      "Ground Control"
+     ],
+     "factors_1": [
+      "Wild Type",
+      "Space Flight"
+     ],
+     "missions": [
+      "SpaceX-14"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0002371",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -0.275729011782417,
+     "material_name": "bone marrow",
+     "adj_p": 0.0671010188083615
+    },
+    {
+     "study": "OSD-254",
+     "comparison": "OSD-254-8c4865fb53b6cdd97e50a66a6874ecf2",
+     "tissues": [
+      "UBERON:0001003"
+     ],
+     "factors_2": [
+      "Vivarium Control",
+      "C57BL/6J",
+      "~25"
+     ],
+     "factors_1": [
+      "Space Flight",
+      "C57BL/6J",
+      "~25"
+     ],
+     "missions": [
+      "SpaceX-15"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0001003",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -1.51206767461451,
+     "material_name": "skin",
+     "adj_p": 0.0723378126379493
+    },
+    {
+     "study": "OSD-254",
+     "comparison": "OSD-254-397faa4e4c8ca945720800dda41d5153",
+     "tissues": [
+      "UBERON:0001003"
+     ],
+     "factors_2": [
+      "Ground Control",
+      "C57BL/6J",
+      "~75"
+     ],
+     "factors_1": [
+      "Space Flight",
+      "C57BL/6J",
+      "~75"
+     ],
+     "missions": [
+      "SpaceX-15"
+     ],
+     "control": "Ground Control",
+     "material_id": "UBERON:0001003",
+     "technology": "RNA Sequencing (RNA-Seq)",
+     "log2fc": -1.40385393090799,
+     "material_name": "skin",
+     "adj_p": 0.0948080547067642
+    },
+    {
+     "study": "OSD-25",
+     "comparison": "OSD-25-6bbd1feb17450bc929d7c0d91ba26254",
+     "tissues": [
+      "UBERON:0002107"
+     ],
+     "factors_2": [
+      "Vivarium Control"
+     ],
+     "factors_1": [
+      "Space Flight"
+     ],
+     "missions": [
+      "STS-135"
+     ],
+     "control": "Vivarium Control",
+     "material_id": "UBERON:0002107",
+     "technology": "DNA microarray",
+     "log2fc": 0.261584529341667,
+     "material_name": "liver",
+     "adj_p": 0.0968758460329748
+    }
+   ]
+  }
+ ]
+}

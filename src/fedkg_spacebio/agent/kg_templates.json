@@ -1,0 +1,25 @@
+{
+ "_note": "The kg.query allow-list (CONTRACTS §7.1; D-033, D-038). The Cypher strings are exactly those used for the recordings in tests/fixtures/kg/ (WS-14 part 1); cypher_sha256 is SHA-256 over the UTF-8 string and is checked when the file is loaded. Templates with agent_callable: false are internal (the version fingerprint) and the tool refuses them.",
+ "gene_human_orthologs": {
+  "cypher": "MATCH (m:MGene {identifier: $gene}) OPTIONAL MATCH (m)-[:IS_ORTHOLOG_MGiG]->(h:Gene) OPTIONAL MATCH (hm:MGene {identifier: h.identifier, taxonomy: '9606'}) RETURN m.identifier AS mgene, m.taxonomy AS mgene_taxon, m.symbol AS mgene_symbol, h.identifier AS gene, hm.symbol AS gene_symbol ORDER BY toInteger(h.identifier)",
+  "cypher_sha256": "df8f836e35dadbe1389be4b364c59af6666f770338b223ecabb8af457f048449",
+  "kg_params": {
+   "gene": "<bare NCBI Gene ID as a string>"
+  },
+  "agent_callable": true
+ },
+ "gene_de_comparisons": {
+  "cypher": "MATCH (m:MGene {identifier: $gene})\nOPTIONAL MATCH (a:Assay)-[r:MEASURED_DIFFERENTIAL_EXPRESSION_ASmMG]->(m)\n  WHERE a.factor_space_1 = 'Space Flight'\n    AND a.factor_space_2 IN ['Ground Control', 'Vivarium Control', 'Basal Control']\nWITH m, a, r, coalesce(a.material_id_1 = a.material_id_2\n     AND [x IN a.factors_1 WHERE x <> a.factor_space_1] = [x IN a.factors_2 WHERE x <> a.factor_space_2], false) AS strict\nOPTIONAL MATCH (s:Study)-[:PERFORMED_SpAS]->(a)\nOPTIONAL MATCH (mi:Mission)-[:CONDUCTED_MIcS]->(s)\nOPTIONAL MATCH (a)-[:INVESTIGATED_ASiA]->(u:Anatomy)\nWITH m, a, r, s, strict, collect(DISTINCT mi.identifier) AS missions, collect(DISTINCT u.identifier) AS tissues\nORDER BY r.adj_p_value, a.identifier\nWITH m,\n     collect(CASE WHEN strict THEN {comparison: a.identifier, study: s.identifier, missions: missions,\n       tissues: tissues, material_id: a.material_id_1, material_name: a.material_name_1,\n       technology: a.technology, control: a.factor_space_2, factors_1: a.factors_1, factors_2: a.factors_2,\n       log2fc: r.log2fc, adj_p: r.adj_p_value} END) AS rows,\n     sum(CASE WHEN a IS NOT NULL AND NOT strict THEN 1 ELSE 0 END) AS n_nonstrict\nRETURN m.identifier AS mgene, m.taxonomy AS mgene_taxon, m.symbol AS mgene_symbol, size(rows) AS n_strict, n_nonstrict, rows",
+  "cypher_sha256": "68be204cbd31fe9fbcc83f238c0113ee820c10081d7f2860b1396f8cdc8730ff",
+  "kg_params": {
+   "gene": "<bare NCBI Gene ID as a string>"
+  },
+  "agent_callable": true
+ },
+ "kg_fingerprint": {
+  "cypher": "MATCH (s:Study) WITH count(s) AS studies, max(toInteger(substring(s.identifier, 4))) AS study_num_max\nMATCH (a:Assay) WITH studies, study_num_max, count(a) AS assays, sum(toInteger('0x' + substring(a.identifier, size(a.identifier) - 12))) AS assay_md5_sum48\nCALL { MATCH (g:MGene) RETURN count(g) AS mgenes }\nCALL { MATCH (h:Gene) RETURN count(h) AS genes }\nCALL { MATCH (mi:Mission) RETURN count(mi) AS missions }\nCALL { MATCH ()-[r:MEASURED_DIFFERENTIAL_EXPRESSION_ASmMG]->() RETURN count(r) AS de_edges }\nCALL { MATCH ()-[r:IS_ORTHOLOG_MGiG]->() RETURN count(r) AS ortholog_edges }\nRETURN studies, study_num_max, assays, assay_md5_sum48, mgenes, genes, missions, de_edges, ortholog_edges",
+  "cypher_sha256": "a1a5b8e40eb9916c4a0b494a87a942074439512fad2019ed66427085cb8298ac",
+  "kg_params": {},
+  "agent_callable": false
+ }
+}

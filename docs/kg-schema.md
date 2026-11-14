@@ -12,8 +12,13 @@ GeneLab connector the same evening and matched.
 - The graph does not expose a version string. `MetaNode` carries no version property, and
   `dbms.components()` is refused on the hosted endpoint (read-only, no `dbms.*`).
 - We therefore **assume** SPOKE-GeneLab v0.3.1+20260311 (the version the mcp-genelab source
-  documents) but **could not confirm it live**. The newest study accessions seen are in the
-  OSD-77x range, and the latest mission start date is 2023-03-14 (SpaceX-27).
+  documents) but **could not confirm it live**. The highest study accession is **OSD-937**
+  (corrected 2026-11-14; an earlier note here said the OSD-77x range), and the latest mission
+  start date is 2023-03-14 (SpaceX-27).
+- Since nothing names the release, `kg.query` records a **fingerprint** instead: nine graph
+  counts plus a checksum over comparison IDs, hashed (CONTRACTS §7.1). On 2026-11-14: 212
+  studies (highest OSD-937), 13,146 comparisons, 138,736 `MGene`, 30,009 `Gene`, 42 missions,
+  50,208,066 DE edges, 121,153 ortholog edges; hash `f0045ca84ae8…`.
 
 ## Node types
 

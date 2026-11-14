@@ -1,0 +1,147 @@
+{
+ "template": "gene_human_orthologs",
+ "kg_params": {
+  "gene": "99412"
+ },
+ "cypher_sha256": "df8f836e35dadbe1389be4b364c59af6666f770338b223ecabb8af457f048449",
+ "fetched": "2026-11-14T05:46:16Z",
+ "source": "mcp-genelab `query` tool via an MCP client; rows checked equal (canonical SHA-256) to a direct POST to https://visualization.osdr.nasa.gov/kg/mcp at `fetched`",
+ "kg_fingerprint_sha256": "f0045ca84ae88aaced79fa2483c4306bd6477eea83619a85e6c9269eff431bfd",
+ "total_rows": 19,
+ "rows_canonical_sha256": "8d1a48461b09fd3f9ed489ea6d09165171395c37b0736a4bb9dd6163a4fbb1eb",
+ "rows": [
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "2801",
+   "gene_symbol": "GOLGA2"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "23015",
+   "gene_symbol": "GOLGA8A"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "55889",
+   "gene_symbol": "GOLGA6B"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "283768",
+   "gene_symbol": null
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "342096",
+   "gene_symbol": "GOLGA6A|LOC124907523"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "440270",
+   "gene_symbol": "GOLGA8B"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "643699",
+   "gene_symbol": "GOLGA8N"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "653061",
+   "gene_symbol": "GOLGA8S"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "653073",
+   "gene_symbol": "GOLGA8J"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "653075",
+   "gene_symbol": "GOLGA8T|GOLGA8K"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "653125",
+   "gene_symbol": "GOLGA8K"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "653641",
+   "gene_symbol": "GOLGA6C"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "653643",
+   "gene_symbol": "GOLGA6D"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "653720",
+   "gene_symbol": "GOLGA8M"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "727909",
+   "gene_symbol": "GOLGA8Q|GOLGA8O"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "728047",
+   "gene_symbol": "GOLGA8Q|GOLGA8O"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "728498",
+   "gene_symbol": "GOLGA8H"
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "100132565",
+   "gene_symbol": null
+  },
+  {
+   "mgene": "99412",
+   "mgene_taxon": "10090",
+   "mgene_symbol": "Golga2",
+   "gene": "101059918",
+   "gene_symbol": "GOLGA8R"
+  }
+ ]
+}
