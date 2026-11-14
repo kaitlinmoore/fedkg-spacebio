@@ -16,8 +16,10 @@ Change a contract here first, then the code and fixtures that depend on it.
 > the (task, stratum) data key, the decision record's log fields, the canonical gene-plan format,
 > and corrections to examples A, B (J5) and C. WS-12 implemented them: the policy evaluator,
 > release log and job-spec parser (§5, §6.1), with the allow/deny suite and the `open` and
-> `restricted` profiles. The masked sum and agent tools of §6.3 and §7–§8, and the gate that
-> refuses to run a job without an allow (`job.submit`), are not implemented yet (WS-13, WS-15).
+> `restricted` profiles. The masked sum of §6.3 is WS-13's. WS-15 part A (2026-11-14) implemented
+> §8 (trace writer, grounding checker), §3's `tissue_uberon`, and four §7 tools (`sites.list`,
+> `policy.check`, `policy.check_plan`, `results.read`). `job.submit` / `job.status`, the gate that
+> refuses to run a job without an allow, and the agent loop are WS-15 part B.
 
 ## 1. Identifiers
 
@@ -66,6 +68,7 @@ Mocks put `FAKE` in place of the timestamp and random part (`job:FAKE-0001`).
 | Spec check (rule ID) | `spec#<check>`: a check of the job spec itself, run before any policy (§5.4) | `spec#clients-known` | the policy evaluator |
 | Release log | `<profile>-<n>`; a reset starts `<n+1>` (§5.3) | `restricted-1` | the release-log store |
 | KG edge (composite key) | `kgedge:<REL_TYPE>\|<start id>\|<end id>`, with our CURIE forms, in the edge's own direction | `kgedge:IS_ORTHOLOG_MGiG\|NCBIGene:<n>\|NCBIGene:<n>` | the `kg.query` tool (§7) |
+| Caveat note (WS-15) | `note:<key>`: a fixed caveat sentence that `results.read` returns with a release (§7) | `note:time-of-day` | the notes catalog, `agent/notes.py` |
 
 The KG has no stable edge IDs, so edges are cited by this composite key. The key is unique only if
 the KG holds at most one edge of a type between two nodes. WS-14 checked this live on 2026-11-14
@@ -153,14 +156,16 @@ census and written to `$FEDKG_WORKDIR/phase3a/manifests/<counts_variant>/<client
 `phase3a/manifests/profiles/<profile>/<counts_variant>/`, with each site's `policy_id` read from
 `policies/<profile>/`, WS-12: `jobs/phase3a_meta/job.py --profile`). In a
 real federation each site would declare its own. Here the coordinator builds them from public
-metadata and never opens a count file. Still TODO: the gene-ID namespace field, and
-`tissue_uberon`, which §7's `sites.list` returns but the manifest doesn't carry yet (WS-15).
+metadata and never opens a count file. Still TODO: the gene-ID namespace field. `tissue_uberon`
+was added in WS-15 (2026-11-14); manifests written before that lack it, and `sites.list` refuses
+them (`manifest_incomplete`) until they are rebuilt.
 
 | Field | Type | Notes |
 |---|---|---|
 | `client` | str | FLARE client name, e.g. `SpaceX-13-ISST`. Must equal the file name. The loader refuses a mismatch |
 | `site` | str | mission (D-014), e.g. `SpaceX-13` |
 | `stratum` | str | `iss` · `earth` (D-020) |
+| `tissue_uberon` | str **(new, WS-15)** | the client's tissue term, from its census rows (`tissue_uberon`, §2), never assumed: `UBERON:0002107` (liver) for SpaceX-4, -8, -13; `UBERON:0006727` (left lateral lobe of liver) for SpaceX-16, -21. A client whose rows name two terms is refused |
 | `policy_id` | str | the site's policy (§5), `pol:<site>:<version>`; the site part must equal `site`. Default version 1 (each testbed site's open policy); the restricted profile builds SpaceX-16's manifests with `pol:SpaceX-16:2`. A site's clients share one policy. Part of the manifest, so a profile change changes `manifest_sha256` (§6) |
 | `design` | str | pydeseq2 formula: `~ condition`, `~ study + condition` (SpaceX-4), `~ age + condition` (SpaceX-16) |
 | `contrast` | list[str] | `["condition", "flight", "ground"]` (positive = higher in flight) |
@@ -233,9 +238,9 @@ The per-gene estimates are not part of the hash.
 estimate and SE at the server, so per-site summaries leave the site. A fixed-effect-only
 analysis would need only Σw·y and Σw per gene (w = 1/SE²), which secure aggregation could
 deliver without revealing any single site's estimate. A site policy that forbids releasing
-per-site estimates is therefore compatible with FE but not with RE. The heterogeneity flag
-(Cochran's Q) also needs per-site estimates. §5 turns this into policy rules; §6.3 describes the
-masked sum.
+per-site estimates is therefore compatible with FE but not with RE. Cochran's Q and I² across
+all clients need one more total, Σw·y² (Q = Σw·y² − (Σw·y)²/Σw; D-039, built in WS-13). §5 turns
+this into policy rules; §6.3 describes the masked sum.
 
 **Phase 3a per-gene results table** (schema `phase3a-per-gene/2`,
 `fedkg_spacebio.federation.results`; written by `jobs/phase3a_meta/report.py`. Schema 2 (WS-11)
@@ -268,6 +273,23 @@ comparing later pooling methods against these outputs.
 | `re_hit` | `re_q` < 0.05 (REML + truncated HKSJ; superseded by `v3_hit` for "a new mission"; kept for comparison) |
 | `log2fc__<client>`, `se__<client>`, `base_mean__<client>`, `included__<client>` | per-site inputs; `included` = entered pooling for this gene |
 | `n_flight__<client>`, `n_ground__<client>` | animals per arm in that site's fit (constant per column) |
+
+**Job-spec tables (WS-13).** A run made from a §6 job spec (`jobs/phase3a_meta/job.py --spec`)
+writes `results/phase3a/[profiles/<profile>/]<stratum>/<counts>/jobs/<job slug>/server/per_gene.csv.gz`
+in the same format and schema version, with a **subset** of the columns above: `ncbi_gene`,
+`symbol`, `k`, the columns of each method run (`fe`: `fe_*`, `fe_hit`; `fe_het`: `i2`, `q`, `q_p`,
+`het_flag`, and with `fe` the `fe_hit_consistent`/`_heterogeneous` split; `reml_hksj`: `re_*`,
+`hksj_*`, `tau2`, `reml_converged`, `re_hit`; `v2`: `fe_est`, `v2_*`, `v2_hit`; `v3`: `v3_*`,
+`v3_hit`), and per site `n_flight`, `n_ground`, `included` (from the gene plan). `log2fc`, `se`
+and `base_mean` per site appear only when the sites sent `per_site_summary`; under `secure_sum`
+the server never had them. Methods not run are **absent, not NaN**. The schema file adds
+`methods_run` (list of §5.2 keys) and `aggregation` (`{strategy: plain}` or `{strategy:
+secure_sum, fixed_point_bits, modulus_bits, quantities, mask_scheme, simulation}`); a reader treats
+a method missing from `methods_run` as not run. Provenance adds `job_id`, `job_spec_sha256`,
+`gene_plan_sha256`, `genes_exclude_sha256`, the profile, `policy_decision` and the policy IDs.
+Next to it: `server/run.json` (clients, n per arm, hit counts, and for `secure_sum` the largest
+rounding bound), `server/received/` (what arrived, exactly), and `sites/<client>/sent/` and
+`sites/<client>/local/` (what each client sent, and the full summary it kept).
 
 ### 4.1 Clock-plane summaries (D-031, D-035)
 
@@ -366,7 +388,7 @@ policy, `pol:project:<n>`, holds the rules every job must pass whatever the site
 | Kind | Contents | What the receiver can read |
 |---|---|---|
 | `site_metadata` | n per arm, design, per-gene inclusion flags (§4 `tested_*`) | the coordinator, before any job (site registry, §7) |
-| `masked_contribution` | per gene in the job's gene plan: w·y and w (w = 1/SE²), masked so that only the sum over clients is readable (§6.3) | per-gene sums only |
+| `masked_contribution` | per gene in the job's gene plan (minus `genes_exclude`): w·y and w (w = 1/SE²), and w·y² when the job asks for `fe_het`, masked so that only the sum over clients is readable (§6.2–§6.3) | per-gene sums only |
 | `per_site_summary` | the §4 site → server summary | each site's per-gene estimate and SE |
 | `model_update` | FedAvg weights plus n_k (phase 3) | each site's update |
 | `per_sample` | anything per sample or per animal | never allowed (project policy) |
@@ -381,7 +403,7 @@ is learned, would make per-gene checks impossible before submission.
 | Method key | Task | Needs from every client | Why |
 |---|---|---|---|
 | `fe` | `de_meta` | `masked_contribution` or `per_site_summary` | the FE estimate and SE are functions of Σw·y and Σw per gene |
-| `fe_het` | `de_meta` | `per_site_summary` | Cochran's Q and I² need each site's estimate |
+| `fe_het` | `de_meta` | `masked_contribution` or `per_site_summary` | Cochran's Q and I² across all clients need only three totals, Q = Σw·y² − (Σw·y)²/Σw (D-039; masked since WS-13). Q over a subset that leaves a site out is a new release, checked by differencing like any other. No other masked quantity is added (D-039's caution: a grid of masked totals could identify sites) |
 | `reml_hksj` | `de_meta` | `per_site_summary` | REML τ² and the HKSJ scale use each site's (y, SE) |
 | `v2` | `de_meta` | `per_site_summary` | moderates φ = Q/(k−1) |
 | `v3` | `de_meta` | `per_site_summary` | each gene's restricted likelihood over the τ² grid |
@@ -627,7 +649,7 @@ phase 3a method set.
   "release_log_head_sha256": null,
   "outcome": "deny",
   "deciding_rule": "pol:SpaceX-16:2#release",
-  "reason": "Per-site estimates may not leave SpaceX-16; it contributes only masked values to a secure sum. Methods fe_het, reml_hksj, v3 need per_site_summary from SpaceX-16-ISST.",
+  "reason": "Per-site estimates may not leave SpaceX-16; it contributes only masked values to a secure sum. Methods reml_hksj, v3 need per_site_summary from SpaceX-16-ISST.",
   "evaluations": [
     {"rule_id": "pol:project:1#no-per-sample", "site": null, "scope": "job", "result": "pass", "detail": ""},
     {"rule_id": "pol:project:1#fedavg-weighting", "site": null, "scope": "job", "result": "not_applicable", "detail": "task de_meta"},
@@ -644,10 +666,11 @@ phase 3a method set.
 (The spec checks and the evaluations for the other sites are elided.) `#diff` fails here even
 with an empty log. §5.3 counts SpaceX-16-ISST's own `per_site_summary` as a release over it alone.
 *Was* shown as `pass` ("release log empty") in WS-10's draft, which missed that row. The outcome
-and the deciding rule are unchanged. The agent then plans `methods: [fe]`,
+and the deciding rule are unchanged. The agent then plans `methods: [fe, fe_het]`,
 `outputs: masked_contribution` for every client and `aggregation: secure_sum` (§6.4). That spec
-gets `outcome: allow`. The agent reports that heterogeneity, the "new mission" estimate (V3) and
-REML/HKSJ were not run, and names `pol:SpaceX-16:2#release` as the reason.
+gets `outcome: allow`. The agent reports that the "new mission" estimate (V3) and REML/HKSJ were
+not run, and names `pol:SpaceX-16:2#release` as the reason. *Updated in WS-13:* `fe_het` was in
+the refused list; since Q and I² come from masked totals (§5.2), it no longer is.
 
 **Example B: per-gene minimum k and differencing (restricted profile, ISS stratum).**
 Clients in column order: A = SpaceX-4, B = SpaceX-8, C = SpaceX-13-ISST, D = SpaceX-16-ISST.
@@ -678,9 +701,11 @@ every gene, so it fails `#min-k` at both remaining sites in either profile. Unde
 ## 6. Federated job spec (`federation/`)
 
 **Status: drafted (WS-10, 2026-11-13); §6.1 clarified and implemented in WS-12 (2026-11-14)**
-(`fedkg_spacebio.federation.jobspec`, `fedkg_spacebio.federation.gene_plan`; §6.2's masked path
-and §6.3 are WS-13). Today's phase 3a jobs
-take their settings as command-line flags (`jobs/phase3a_meta/`). This spec is what the agent
+(`fedkg_spacebio.federation.jobspec`, `fedkg_spacebio.federation.gene_plan`); **§6.2's masked
+path, §6.3 and running a `de_meta` spec implemented in WS-13 (2026-11-14)**
+(`fedkg_spacebio.federation.{secure_sum,spec_run,spec_server}`; `jobs/phase3a_meta/job.py --spec`,
+which doesn't gate: the policy check and `job.submit` decide whether a spec may run). The
+flag-driven phase 3a runs keep their command-line flags. This spec is what the agent
 submits and the policy check reads. Format: YAML or JSON, one document per job. Unknown fields
 are refused at every level.
 
@@ -700,7 +725,7 @@ are refused at every level.
 | `gene_plan` | object | `ref` + `sha256` of a table `ncbi_gene` → contributing clients, in the canonical format below. Built from the sites' inclusion flags before the policy check (§5.3; `fedkg_spacebio.federation.gene_plan`). A client sends values only for its genes in the plan. Its client columns must be exactly the job's `clients` |
 | `genes_exclude` | object \| null | `{decision_id, ref, sha256}`: genes removed after a per-gene deny (§5.3), in the canonical gene-list format below. The plan stays as it was; the released genes are the plan minus this list |
 | `outputs` | map | client → output kind (§5.1). Must provide what every method needs (§5.2) |
-| `aggregation` | object | `strategy`: `plain` · `secure_sum`; for `secure_sum`, `fixed_point_bits` and `modulus_bits` (§6.3) |
+| `aggregation` | object | `strategy`: `plain` · `secure_sum`; for `secure_sum`, `fixed_point_bits` < `modulus_bits` ≤ 64 (§6.3; a larger modulus is a parse error) |
 | `weighting` | object | **Required for every task except `fedavg_classifier`.** For `fedavg_classifier` the parser lets it be absent, so the project policy's `weighting` rule can deny the job by name (D-017). `de_meta`: `{scheme: inverse_variance}` (fixed by the method). `clock_plane`: `{scheme: inverse_variance}` (the comparison pools chords with W_k = V_k⁻¹). `fedavg_classifier`: `{scheme: sample_count}` by default (D-017); `equal`, or `custom` with `weights` (client → number), only with a `reason` |
 | `rounds` | int | 1 for `de_meta` and `clock_plane` |
 | `split` | object \| null | classifier only: `{scheme: loso, folds_ref, sha256}` (fixed shared folds; leave-one-site-out). Null otherwise |
@@ -730,11 +755,25 @@ flags). Relative `ref`s resolve against `$FEDKG_WORKDIR/policy/`. Both formats a
 
 ### 6.2 Site → client contract additions
 
-- **`de_meta` with `per_site_summary`:** unchanged, §4.
-- **`de_meta` with `masked_contribution`:** for each gene the client has in `gene_plan`, the masked
-  fixed-point values of w·y and w (w = 1/SE², y = log2FC), over the plan's gene order. Genes the
-  client isn't assigned are sent as masked zeros, so every client's vector has the same length.
-  `n_flight`, `n_ground` and the §4 site metadata go unmasked. The server learns per-gene sums only.
+- **`de_meta` with `per_site_summary`:** the §4 summary. In a job-spec run (WS-13) it holds only
+  the genes the plan assigns the client (minus `genes_exclude`), so the server can read exactly
+  what the policy check counted; the flag-driven runs still send every gene. Before restricting,
+  the client checks that its full flags hash to the spec's `inclusion_flags_sha256`; the
+  restricted summary's own `inclusion_flags_sha256` then covers the flags it sent, and
+  `mapping.n_sent` counts them.
+- **`de_meta` with `masked_contribution`** (implemented, WS-13): the rows are the plan's genes
+  **minus `genes_exclude`**, in plan order (excluded genes are never summed, so the server never
+  learns them). Per row: w and w·y (w = 1/SE², y = log2FC), plus w·y² when the job's methods
+  include `fe_het`; exact 0 for genes the client isn't assigned, so every client's vectors have
+  the same length. Encoded and masked as in §6.3. FLARE `params`: `masked_w`, `masked_wy`
+  (`masked_wy2`), 1-D uint64. FLARE `meta["fedkg_masked_contribution"]`, unmasked: the §4 site
+  metadata (same fields, including `n_flight`, `n_ground`, `inclusion_flags_sha256`) plus
+  `job_id`, `gene_plan_sha256`, `genes_exclude_sha256`, `n_rows`, `fixed_point_bits`,
+  `modulus_bits`, `quantities`, `mask_scheme`. `secure_sum.validate_contribution` checks these
+  exact whitelists on both sides. The client refuses to send if its flags don't hash to the
+  spec's value or the plan assigns it a gene it didn't flag. The server refuses (no partial
+  sums) if any client is missing or reports a different plan, exclusion list, f, m, row count
+  or quantity set. The server learns per-gene sums only.
 - **`fedavg_classifier`:** every client result carries `FLMetaKey.NUM_STEPS_CURRENT_ROUND = n_k`
   (training samples this round). The client also declares n_k in its manifest. The server-side check
   fails the round if a result lacks it, rather than letting FLARE fall back to 1.0 (D-017).
@@ -742,8 +781,11 @@ flags). Relative `ref`s resolve against `$FEDKG_WORKDIR/policy/`. Both formats a
     builds every FedAvg result and refuses an n_k that FLARE 2.9.1 would silently replace with 1.0
     (missing/None, bool, non-numeric including strings, non-finite, ≤ 0). `require_n_k` is the
     same check on a received result. Equal weighting is sent as an explicit 1 per client.
-  - **Not yet: the server-side check** that fails the round. It needs a custom server aggregator
-    and is planned with the masked-sum server path (WS-13), which can call `require_n_k`.
+  - **Implemented (WS-13): the server side.** `fedkg_spacebio.federation.fedavg_server.NkCheckedAggregator`
+    (FLARE's `ModelAggregator` extension point) calls `require_n_k` on every result; a bad one
+    makes FLARE 2.9.1 mark the round failed and refuse to save a model. The averaging is still
+    FLARE's `WeightedAggregationHelper` with weight n_k. `jobs/fedavg_check/` uses it for every run
+    except the `--demo_omit_n_k` canary, which keeps stock FLARE to show the silent fallback.
 - **`clock_plane`:** the §4.1 whitelists, as `per_site_summary`.
 
 ### 6.3 `secure_sum`: simulated secure aggregation
@@ -751,15 +793,47 @@ flags). Relative `ref`s resolve against `$FEDKG_WORKDIR/policy/`. Both formats a
 - Each pair of clients (i, j) shares a seed. Client i adds the pseudo-random mask stream for each
   pair with j > i and subtracts it for j < i, mod 2^`modulus_bits`. The masks cancel in the sum
   over all clients.
-- Values are fixed-point integers (round(x · 2^`fixed_point_bits`)), so the sum is exact modulo
-  the rounding.
-- **This is a simulation.** The pairwise seeds come from the job config, not a key exchange. In the
-  FLARE simulator every client runs in one process. A missing client makes the job fail (no
-  dropout recovery). It shows what the server could learn under this policy; it is not a
-  security claim.
-- **Check:** FE from masked sums equals FE from plain per-site summaries within 2^−`fixed_point_bits`
-  per gene, on synthetic data and on the real liver summaries (the same kind of check as WS-07
-  Check 1).
+- Values are fixed-point integers (round(x · 2^`fixed_point_bits`)), stored modulo
+  2^`modulus_bits` in two's complement, so the sum is exact apart from each value's rounding
+  (≤ 2^−(f+1)).
+- **Overflow is an error, never a wrap.** With K clients, every encoded value must satisfy
+  |round(x·2^f)| ≤ ⌊(2^(m−1) − 1)/K⌋, so every partial and full sum is representable. The encoder
+  refuses anything larger, and NaN/±inf.
+- **`modulus_bits` ≤ 64** (implementation limit: numpy uint64 arithmetic is arithmetic mod 2^64).
+  The spec parser refuses a larger value (`JobSpecError`), and the run checks it again.
+- **Chosen parameters (WS-13): `fixed_point_bits: 40`, `modulus_bits: 64`.** On the real liver
+  summaries the largest w at any site is 920 (SpaceX-16-ISST), the largest |w·y| 119 and the largest
+  w·y² 136. With K = 4 the representable range is |x| < 2.1 × 10⁶ (≈ 2,280× the largest value), and
+  each value is off by at most 2^−41 ≈ 4.5e-13.
+- **Mask streams** (`secure_sum.MASK_SCHEME = pairwise-additive/shake256-le-u64/1`): pair key =
+  SHAKE-256 over a domain tag, the run's 32-byte root seed, the job ID and the two client names
+  (sorted, length-prefixed); stream = SHAKE-256 over the pair key and the quantity name, read as
+  little-endian uint64, reduced mod 2^m. Clients in sorted order; client i adds the streams of
+  later clients and subtracts those of earlier ones.
+- **Totals are exact integers.** FE = Σw·y / Σw by exact integer division (correctly rounded);
+  Q = (C·B − A²)/(B·2^f) as an exact rational (A = Σw·y, B = Σw, C = Σw·y² in units of 2^−f), so
+  the subtraction in Q loses nothing to floating point. A negative rounding residue (true Q ≈ 0)
+  is set to 0 and counted. Genes with k < 2 get no estimate and are left out of BH, as in
+  `meta.pool`.
+- **This is a simulation.** The pairwise seeds come from the job config, not a key exchange: the
+  root seed is drawn per run and passed to the clients as a job argument, which FLARE writes in
+  clear text into the job configuration (FLARE's own secret scan warns about it). In the FLARE
+  simulator every client runs in one process. A missing client makes the job fail (no dropout
+  recovery). It shows what the server could learn under this policy; it is not a security claim.
+- **Tolerance (replaces "within 2^−f per gene", which can't hold when Σw is small).** With
+  ε = k·2^−(f+1) per decoded total (k contributing clients), per gene:
+  |Δest| ≤ ε(1 + |est|)/(Σw − ε); |ΔSE| ≤ ε / (2(Σw − ε)^{3/2});
+  |ΔQ| ≤ ε + (2ε|est|Σw + ε² + est²·Σw·ε)/(Σw − ε) (`secure_sum.error_bound`). The check allows
+  64 float64 ulps more for the plain side's own rounding.
+- **Check** (`jobs/phase3a_meta/check_secure_sum.py`; `tests/test_secure_sum.py`): masked FE and Q
+  vs plain pooling of the same summaries and vs the schema-2 tables, every gene within the bound,
+  identical `fe_hit` and `het_flag` sets. Real liver summaries, both strata, both count matrices,
+  complete-case and ≥ 3-site plans (WS-13, 2026-11-14): every comparison passes; max |Δest|
+  2.2e-12 (at most 0.72 of its bound), max |ΔQ| 9.9e-12 (at most 0.88 of its bound); `fe_hit`
+  and `het_flag` sets identical everywhere. The nearest gene sits 1.4e-5 from q = 0.05; the
+  largest |Δq| is 5e-13. The restricted-profile FLARE runs (ISS, Earth; standard counts; DE rerun)
+  match both their own site-local summaries and the open-profile `primary` tables the same way
+  (ISS 1,926 FE hits, Earth 1,722; `het_flag` 2,932 and 3,986).
 
 ### 6.4 Examples
 
@@ -781,7 +855,7 @@ outputs:
   SpaceX-8: masked_contribution
   SpaceX-13-ISST: masked_contribution
   SpaceX-16-ISST: masked_contribution
-aggregation: {strategy: secure_sum, fixed_point_bits: 32, modulus_bits: 64}
+aggregation: {strategy: secure_sum, fixed_point_bits: 40, modulus_bits: 64}
 weighting: {scheme: inverse_variance}
 rounds: 1
 split: null
@@ -829,10 +903,19 @@ declare `n_k` (§3).
 
 ## 7. Agent tool return shapes (`agent/`)
 
-**Status: sketched for the demo (WS-10, 2026-11-13).** Every tool returns the same envelope. The
-`ids` list is what the grounding checker (§8) trusts, so each tool must list every ID in `data`
-that a claim could cite. A test scans each tool's `data` for ID patterns and checks they are all
-in `ids`.
+**Status:** sketched for the demo (WS-10, 2026-11-13). Implemented: `kg.query` (WS-14);
+`sites.list`, `policy.check`, `policy.check_plan` and `results.read` (WS-15 part A, 2026-11-14;
+registry in `agent/tools.py`, `agent/toolset.py`). `job.submit` / `job.status`: WS-15 part B.
+Every tool returns the same envelope. The `ids` list is what the grounding checker (§8) trusts,
+so each tool must list every ID in `data` that a claim could cite. A test scans each tool's
+`data` with the checker's own scanner (`agent/idscan.py`, slugs included, symbol fields skipped)
+and checks every ID-shaped token is in `ids`, and every `ids` entry occurs in `data`.
+
+Every call goes through the registry: it writes the `tool_call` record (the input as sent),
+validates the input against the tool's model (unknown fields refused; `ok: false` with
+`invalid_input`), runs the tool, and writes the envelope as the `tool_result` record. A tool
+error has its own code; any other exception is `internal_error`. Run-level settings (policy
+profile, counts variant, paths) are the run's, never a tool input.
 
 ```json
 {
@@ -852,20 +935,46 @@ run used can be audited.
 
 | Tool | Input | `data` | `ids` |
 |---|---|---|---|
-| `sites.list` | `stratum?`, `tissue?` | per client: `client`, `site`, `stratum`, `tissue_uberon`, `n_flight`, `n_ground`, `studies`, `design`, `policy_id`, `inclusion_flags_sha256` | client and site IDs, OSD accessions, UBERON terms, policy IDs |
-| `policy.check` | a job spec (§6) | the decision record (§5.4); a malformed spec gives `ok: false` | decision ID, rule IDs, policy IDs |
+| `sites.list` | `stratum?` (`iss` · `earth`), `tissue?` (`liver` = the three liver terms of §7.1, or one `UBERON:` term) | `profile`, `counts_variant`, `filters`, `tissue_terms`; per client: `client`, `site`, `stratum`, `tissue_uberon`, `n_flight`, `n_ground`, `studies`, `design`, `policy_id`, `counts_variant`, `manifest_sha256`, `inclusion_flags_sha256` (null if never released), `flags_released` | client and site IDs, OSD accessions, UBERON terms (and the filter's terms), policy IDs |
+| `policy.check` | `spec`: a job spec (§6) | the decision record (§5.4), plus `spec`: the spec as checked, with its minted `job_id` and, on allow, `policy_decision` set (submit exactly that spec). Errors: `invalid_spec` (malformed; no record), `profile_mismatch` | decision, job, rule (incl. `spec#…`), policy and log IDs, the log head, the job's clients, client and site names in the record's text |
+| `policy.check_plan` **(new, WS-15)** | `specs`: 1–12 of `{label, spec}` (drafts: no `policy_decision`; labels `[A-Za-z0-9_-]{1,40}`, unique) | `profile`, `log_id`, `log_head`, `order`; per spec: `label`, `outcome_in_plan`, `deciding_rule`, `failing[]` (`rule_id`, `site`, `scope`, `detail`, `genes_failed`, `genes_sha256`, `genes_ref`), `outcome_alone`, `deciding_rule_alone`, `conflicts_with`, `combination`, `mutual_with`; `summary` | rule, policy and log IDs, the log head, client and site names in the text |
 | `job.submit` | job spec with `policy_decision`; `mode`: `replay` · `live` | `job_id`, `run_id`, `mode`, `status` | job and run IDs |
 | `job.status` | `job_id` | `status` (`queued` · `running` · `done` · `failed`), `release_ids`, `started`, `finished`, `log_tail` | job, run and release IDs |
-| `results.read` | `release_id`; `select`: `top` (with `sort_by`, `n`) or `genes` | `method`, `stratum`, `k_by_gene`, rows (`ncbi_gene`, `symbol`, `estimate`, `se`, `p`, `q`), `methods_run`, `methods_refused` (method → decision ID), `notes` (the D-029 caveats that apply to this release) | NCBI Gene CURIEs, release ID, decision IDs |
+| `results.read` | `release_id`; `method` (`fe` default · `fe_het` · `v2` · `v3` · `reml_hksj`); `select`: `{top: {sort_by: q · p · abs_estimate, n ≤ 50}}` or `{genes: [NCBIGene CURIEs]}` | `release_id`, `job_id`, `profile`, `log_id`, `method`, `stratum`, `counts_variant`, `clients`, `aggregation`, `methods_run`, `methods_refused` (method → decision ID), `n_tested`, `n_hits`, `k_by_gene`, rows (`ncbi_gene`, `symbol`, `k`, then `estimate`, `se`, `p`, `q`, `hit`; for `fe_het`: `cochran_q`, `q_p`, `i2`, `het_flag`), `not_in_release`, `notes` (`{note_id, text}`: the caveats that apply). Errors: `unknown_release`, `release_not_in_log`, `table_changed`, `method_not_run` | NCBI Gene CURIEs of the rows returned and `not_in_release`, release, job and log IDs, clients, decision IDs, note IDs, client and site names in the notes |
 | `kg.query` | `template` (named, from an allow-list) and its parameters (§7.1) | per template (§7.1); always `params`, `notes`, `cypher_sha256`, `kg_version` | node CURIEs, OSD accessions, comparison IDs, mission slugs, composite edge keys (§1); never symbols |
 
-- **`sites.list`** takes `policy_id` and most fields from the manifest (§3), and
-  `inclusion_flags_sha256` from the site's latest summary metadata (§4), computed with
-  `sites.inclusion.inclusion_flags_sha256`. `tissue_uberon` isn't in the manifest yet (§3 TODO).
+- **`sites.list`** takes `policy_id`, `tissue_uberon` and most fields from the manifest (§3). It
+  **recomputes** `inclusion_flags_sha256` from the flags each client released before any job (the
+  open run's `results/phase3a/<stratum>/<counts>/flare/sent/<client>.npz`; only `ncbi_gene` and
+  the `tested_*` flags are read) with `sites.inclusion.inclusion_flags_sha256`, and refuses
+  (`flags_mismatch`) if it differs from the value in the client's metadata. It reports facts; the
+  compatibility judgement is a `decision` record (§8).
+- **`policy.check`** wraps `policy.evaluate.check_job` unchanged. In a trace the decision ID is the
+  trace's next `<trace id>/dec/<n>`; outside one it is `dec:<job suffix>-<n>`. The record and
+  failing-gene lists are written under the policy root as for the CLI.
+- **`policy.check_plan`** checks every intended release before any is made. It copies the active
+  log and the specs' files to a temporary folder, checks the specs in order there, and appends
+  each allowed one to the copy as if released; the real log and decisions are never written. For
+  each spec refused in the plan: `outcome_alone` (against the real log only); `conflicts_with`,
+  the earlier allowed specs that each cause the refusal on their own; `combination` (true when
+  only several together do); `mutual_with`, the conflicting specs that the reverse order would
+  refuse. Failing-gene lists are copied to `<policy root>/plan_checks/<call id as file stem>/`
+  (outside the log and decision folders). The agent's choice among conflicting specs is a
+  `decision` of kind `plan`, `based_on` this call.
 - **`job.submit`** refuses a spec whose `policy_decision` is missing, isn't `allow`, or doesn't
   match the spec's hash. In `replay` mode it returns the recorded release for an identical spec,
   and refuses if none exists.
-- **`results.read`** never returns per-site columns from a release made under `secure_sum`.
+- **`results.read`** reads only **released** results, through a **release record**
+  `$FEDKG_WORKDIR/agent/releases/<release id as file stem>.json`, written once by `job.submit`
+  after the log append: `release_id`, `job_id`, `job_spec_sha256`, `profile`, `log_id`,
+  `stratum`, `counts_variant`, `inclusion` (`rule`, `min_sites_per_gene`), `clients`, `table` and
+  `schema` (`path` relative to `$FEDKG_WORKDIR`, `sha256`), `methods_refused`. Before reading it
+  checks the release is in that log with the same job and spec hash, and that both files still
+  hash to the recorded values. The table must be a job-spec table (schema lists `methods_run`).
+  It never returns per-site columns, whatever the aggregation. `notes` come from the catalog in
+  `agent/notes.py`: each caveat is a fixed sentence with a `note:` ID and a rule for which releases
+  it applies to (method; the phase 3a findings only for that analysis, and the per-site ones only
+  for plain releases; framing by profile and aggregation). A caveat claim cites its note ID.
 - **`kg.query`** runs only named templates, not free Cypher (§7.1).
 - Symbols are display labels and never count as evidence.
 
@@ -978,32 +1087,59 @@ Rows cut by `limit` or the tissue filter contribute nothing.
 
 ## 8. Agent trace format (`agent/`)
 
-**Status: sketched for the demo (WS-10, 2026-11-13).** One JSON Lines file per run,
-`$FEDKG_WORKDIR/traces/<trace id>.jsonl`. Every record has `trace_id`, `seq` (0, 1, 2, …), `ts`
-(UTC) and `type`.
+**Status:** sketched in WS-10 (2026-11-13); implemented in WS-15 part A (2026-11-14):
+`agent/trace.py` (writer, reader), `agent/idscan.py`, `agent/grounding.py`. One JSON Lines file
+per run, `$FEDKG_WORKDIR/traces/<trace id as file stem>.jsonl` (`:` and `/` as `_`). Every record
+has `trace_id`, `seq` (0, 1, 2, …), `ts` (UTC, `…Z`) and `type`, and two hash fields:
+`prev_sha256` (the previous record's `record_sha256`; null first) and `record_sha256` (SHA-256 of
+the record's canonical JSON without that field: sorted keys, compact, UTF-8, no NaN). The writer
+only appends; `run_start` is first and only first; after `run_end` it refuses any append and the
+file is made read-only. The reader refuses a file whose chain, `seq`, trace ID, record types or
+call IDs don't check out, and the grounding checker grades only a trace that reads. Tamper-evident,
+not tamper-proof (like the release log, §5.3). Call IDs `<trace id>/call/<n>` and decision IDs
+`<trace id>/dec/<n>` (one counter for the policy checks and the agent's own decisions) are minted
+by the writer and must belong to the trace.
 
 | `type` | Fields |
 |---|---|
-| `run_start` | `question`, `policy_profile`, `agent_version`, `model` (open; recorded when chosen), `kg_version`, `tools` (name → version) |
+| `run_start` | `question`, `policy_profile`, `agent_version`, `model` (provider, model, endpoint host, adapter version and settings; never a key; null for a run without a model), `kg_version`, `tools` (name → version) |
 | `tool_call` | `call_id`, `tool`, `input` |
 | `tool_result` | the §7 envelope |
 | `decision` | `decision_id`, `kind` (`compatibility` · `policy` · `plan` · `schedule`), `choice`, `reason`, `based_on` (call IDs) |
-| `report` | `claims[]`: `claim_id`, `text`, `kind` (`result` · `kg_fact` · `policy` · `caveat`), `citations[]` of `{id, call_id}` |
-| `grounding` | `checker_version`, per claim `verdict` (`supported` · `unsupported`) and the failing citations, `supported_rate`, `fabricated_ids` |
+| `model_call` **(new, WS-15)** | `provider`, `model` (asked for), `served_model` (what answered), `stop` (`tool_calls` · `end` · `max_tokens` · `refusal` · `pause`), `usage`, `request_id`, `n_tool_calls`, `error` (a refusal is recorded here with its category). No prompts, no keys |
+| `report` | `claims[]`: `claim_id`, `text`, `kind` (`result` · `kg_fact` · `policy` · `caveat` · `site`), `citations[]` of `{id, call_id}`. One per trace |
+| `grounding` | `checker_version`, `report_seq`, `claims[]` (`claim_id`, `verdict` `supported` · `unsupported`, `failures[]` of `{rule, id, call_id, reason}`), `n_claims`, `n_supported`, `supported_rate` (null for an empty report), `fabricated_ids` (sorted) |
 | `run_end` | `status`, `error` |
 
-**Grounding rules** (the checker reads only this file):
+**Grounding rules** (the checker reads only this file; a claim is supported only if no rule
+fails, so one bad citation makes it unsupported):
 1. Each citation's `id` must be in the `ids` of the `tool_result` with that `call_id`, **in this
-   trace**.
+   trace**, recorded **before the report**. A failed result lists no IDs.
 2. The citing call must be a tool that can support the claim's kind: `result` → `results.read`;
-   `kg_fact` → `kg.query`; `policy` → `policy.check`; `caveat` → `results.read` or `policy.check`.
-3. Any ID-shaped token in a claim's text (a CURIE, OSD accession, edge key or project ID) must be
-   cited. An uncited ID makes the claim unsupported.
-4. `fabricated_ids` lists cited IDs found in no tool result of the trace. The target is zero.
+   `kg_fact` → `kg.query`; `policy` → `policy.check` or `policy.check_plan`; `caveat` →
+   `results.read` or `policy.check`; `site` → `sites.list`.
+3. Any ID-shaped token in a claim's text must have a citation that passes rules 1 and 2. Tokens
+   (`agent/idscan.py`), longest match first, trailing punctuation dropped:
+   - **pattern IDs:** edge keys; comparison IDs before bare `OSD-<n>`; `OSD-FAKE-<n>`; run-time IDs
+     (`trace:…[/call|dec/<n>]`, `job:`, `run:`, `rel:`, `dec:`, `pol:<site>:<n>[#<rule>]`,
+     `spec#<check>`, `note:<key>`); CURIEs (`NCBIGene`, `UBERON`, `CL`, `MONDO`, `HP`,
+     `NCBITaxon`, `ENSEMBL`, `FAKE`);
+   - **listed slugs:** any token equal to an ID without a fixed pattern that some tool result in
+     the trace lists (client, site and mission slugs, log IDs);
+   - **slug-shaped tokens:** a capital letter, letters or digits, then `-`/`_` parts, with a digit
+     (`SpaceX-99`), so an invented mission or site name is caught. A slug-shaped token that is a
+     gene `symbol` / `gene_symbol` in some tool result's `data` of the trace is a **name**, not an
+     ID: it needs no citation and is never fabricated (`Nkx2-1`, `NKX2-5`). A listed ID wins over
+     a symbol spelled the same. Mock hashes (`FAKE-sha256-NNNN`) are not slugs.
+   Consequence: claim text says "top 10", not "Top-10", and states caveats in words, citing the
+   `note:` ID.
+4. `fabricated_ids` lists IDs found in no tool result of the trace: every cited ID and every
+   ID-shaped token of claim text (symbols excepted). The target is zero.
+5. A claim with no citation that passes rules 1 and 2 is unsupported, even with no IDs in its text.
 
 **Example** (records abbreviated):
 ```json
-{"trace_id": "trace:FAKE-0001", "seq": 0, "ts": "2026-11-20T15:00:00Z", "type": "run_start", "question": "Which liver genes change with spaceflight across ISS missions?", "policy_profile": "restricted", "agent_version": "0.0.0-mock", "model": null, "kg_version": "SPOKE-GeneLab v0.3.1+20260311", "tools": {"results.read": "0.1.0", "kg.query": "0.1.0"}}
+{"trace_id": "trace:FAKE-0001", "seq": 0, "ts": "2026-11-20T15:00:00Z", "type": "run_start", "question": "Which liver genes change with spaceflight across ISS missions?", "policy_profile": "restricted", "agent_version": "0.0.0-mock", "model": null, "kg_version": "SPOKE-GeneLab v0.3.1+20260311 (assumed); fp:FAKE", "tools": {"results.read": "0.1.0", "kg.query": "0.1.0"}}
 {"trace_id": "trace:FAKE-0001", "seq": 9, "ts": "2026-11-20T15:03:10Z", "type": "tool_result", "call_id": "trace:FAKE-0001/call/5", "tool": "results.read", "ok": true, "data": {"method": "fe", "rows": [{"ncbi_gene": "FAKE:0001", "symbol": "Fake1", "estimate": -1.2, "q": 1e-6}]}, "ids": ["FAKE:0001", "rel:FAKE-0001-1"]}
 {"trace_id": "trace:FAKE-0001", "seq": 11, "ts": "2026-11-20T15:03:40Z", "type": "tool_result", "call_id": "trace:FAKE-0001/call/6", "tool": "kg.query", "ok": true, "data": {"rows": [{"mgene": "FAKE:0001", "gene": "FAKE:9001", "edge": "kgedge:IS_ORTHOLOG_MGiG|FAKE:0001|FAKE:9001"}]}, "ids": ["FAKE:0001", "FAKE:9001", "kgedge:IS_ORTHOLOG_MGiG|FAKE:0001|FAKE:9001"]}
 {"trace_id": "trace:FAKE-0001", "seq": 12, "ts": "2026-11-20T15:04:00Z", "type": "report", "claims": [
@@ -1011,6 +1147,7 @@ Rows cut by `limit` or the tissue filter contribute nothing.
   {"claim_id": "c2", "kind": "kg_fact", "text": "Its human ortholog is FAKE:9001.", "citations": [{"id": "kgedge:IS_ORTHOLOG_MGiG|FAKE:0001|FAKE:9001", "call_id": "trace:FAKE-0001/call/6"}, {"id": "FAKE:9001", "call_id": "trace:FAKE-0001/call/6"}]},
   {"claim_id": "c3", "kind": "kg_fact", "text": "FAKE:0001 is also changed in OSD-FAKE-7.", "citations": [{"id": "OSD-FAKE-7", "call_id": "trace:FAKE-0001/call/6"}]}]}
 ```
-`c1` and `c2` are supported. `c3` is unsupported: `OSD-FAKE-7` isn't in call 6's `ids` (rule 1),
-and `FAKE:0001` appears in the text without a citation (rule 3). `OSD-FAKE-7` is then listed in
-`fabricated_ids`.
+`c1` and `c2` are supported. `c3` is unsupported: `OSD-FAKE-7` isn't in call 6's `ids` (rule 1);
+`FAKE:0001` and `OSD-FAKE-7` appear in the text without a valid citation (rule 3); and no citation
+passes (rule 5). `OSD-FAKE-7` is in no tool result, so it is listed in `fabricated_ids`.
+(`tests/test_grounding.py::test_contract_worked_example` checks exactly this.)

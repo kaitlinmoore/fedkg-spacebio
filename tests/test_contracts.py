@@ -39,3 +39,12 @@ def test_site_summary_metadata_is_documented_in_4():
     documented = backticked(section("4. Harmonization outputs"))
     missing = [f for f in site_de.META_FIELDS if f not in documented]
     assert not missing, f"site_de.META_FIELDS missing from CONTRACTS §4: {missing}"
+
+
+def test_masked_contribution_fields_are_documented_in_6_2():
+    from fedkg_spacebio.federation import secure_sum
+    documented = backticked(section("6.2 Site → client contract additions"))
+    missing = [f for f in secure_sum.MASK_FIELDS if f not in documented]
+    assert not missing, f"secure_sum.MASK_FIELDS missing from CONTRACTS §6.2: {missing}"
+    for key in ("masked_w", "masked_wy", "masked_wy2"):
+        assert key in documented

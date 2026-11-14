@@ -146,11 +146,20 @@ falling back to 1.0.
 `federation/fedavg_client.fedavg_result`, which refuses, before the result exists, each value
 FLARE would silently turn into 1.0 (missing/None, bool, non-numeric including numeric strings,
 non-finite, ≤ 0). Equal weighting is sent as an explicit weight of 1 per client, so it is
-declared rather than an accident. `tests/test_fedavg.py` has one test per refused case. The
-server-side check that fails a round on a result without n_k needs a custom FLARE aggregator and
-is left for the masked-sum server path (WS-13). A `--demo_omit_n_k` flag bypasses the helper to
-show the fallback; the slow test asserts FLARE still falls back, so a FLARE upgrade that changes
-this is noticed.
+declared rather than an accident. `tests/test_fedavg.py` has one test per refused case.
+
+**Enforcement (D-036, server side; WS-13).** The server checks too: `federation/fedavg_server.py`
+plugs a `ModelAggregator` (FLARE's extension point for custom aggregation) into the recipe. It
+calls `require_n_k` on every result; a missing or unusable n_k makes FLARE mark the round failed
+and refuse to save a model, instead of weighting that client 1.0. After the check, the averaging
+is FLARE's own `WeightedAggregationHelper` with weight n_k, the same helper and weight as FLARE's
+built-in path. *Alternative:* averaging in our own code inside the aggregator. Rejected because the
+check in §5.3 would then compare our code with itself.
+
+A `--demo_omit_n_k` flag bypasses the client helper to show the fallback, and runs FLARE's stock
+aggregation on purpose; the slow test asserts FLARE still falls back, so a FLARE upgrade that
+changes this is noticed. With `--server_check` the same clients meet our server, and the job
+fails ("server refuses the result from site-3: client result has no NUM_STEPS_CURRENT_ROUND").
 
 Two related FLARE details:
 1. The NumPy recipe's persistor casts the initial model to float32 and saves a single array (key
@@ -388,10 +397,12 @@ Two profiles share all files except SpaceX-16's: **open** (every site allows per
 and **restricted** (SpaceX-16 allows only masked contributions to a secure sum, and adds a
 differencing rule with `min_sites: 3`). Example A (CONTRACTS §5.5) is the point of the pair: the
 full method set (FE, FE with heterogeneity, REML+HKSJ, V3) is allowed under open and refused
-under restricted by `pol:SpaceX-16:2#release`, because heterogeneity methods need each site's own
-estimate. The re-planned job (FE only, masked, secure sum) is allowed. That is the
-accuracy/privacy trade made visible: under the restricted profile the analysis can answer
-question A ("changed in these missions", §5.5) but not B.
+under restricted by `pol:SpaceX-16:2#release`, because the random-effects methods need each
+site's own estimate. The re-planned job (FE and Cochran's Q/I², masked, secure sum; §7.7) is
+allowed. That is the accuracy/privacy trade made visible: under the restricted profile the
+analysis can answer question A ("changed in these missions", §5.5), with its heterogeneity
+annotation, but not B. (Until WS-13, heterogeneity was refused too; D-039 moved it to masked
+totals.)
 
 ### 7.2 Per-gene minimum k
 In phase 3a the set of sites pooled for a gene varies by gene (inclusion thresholds, ≥ 3-site
@@ -486,13 +497,75 @@ manifest declares a usable n_k (the same check as the client helper, §5.2), or 
 
 ### 7.6 What isn't built yet
 The check decides; nothing yet refuses to *run* a job without an allow. That gate is
-`job.submit` (CONTRACTS §7, with the agent tools). The masked sum itself (§6.3) and the
-server-side n_k check are WS-13. `jobs/phase3a_meta/job.py --profile` sets the manifests' policy
-IDs and keeps the profiles' outputs apart, but it runs whatever it is told. No DP mechanism
-exists, so a policy requiring DP refuses every job.
+`job.submit` (CONTRACTS §7, with the agent tools). `jobs/phase3a_meta/job.py` (with `--profile`,
+or `--spec` for a §6 job spec) keeps the profiles' outputs apart, but it runs whatever it is told.
+No DP mechanism exists, so a policy requiring DP refuses every job.
+
+### 7.7 Simulated secure sum: fixed effect and heterogeneity from masked totals (WS-13)
+
+**What it is, and what it isn't.** Under the restricted profile SpaceX-16 lets only masked
+contributions leave. This section is how a fixed effect, and Cochran's Q and I², are computed
+without the server ever holding one site's estimate. It is a **simulation of the arithmetic**: the
+pairwise mask seeds come from the job configuration (FLARE writes them into the job config in
+clear text and its own secret scan warns about it), every client runs on one machine, and there
+is no dropout recovery. It shows what a server would receive under such a policy. It is not a
+security or privacy claim, and the data are public.
+
+**Why totals are enough.** With w = 1/SE² per site and y = log2FC:
+FE estimate = Σw·y / Σw, FE SE = 1/√Σw, and Q = Σw·(y − ȳ)² = Σw·y² − (Σw·y)²/Σw (expanding the
+square). So each client sends three numbers per gene, w, w·y and w·y², and the server needs only
+their sums over clients. Sending w·y² is extra disclosure, decided in D-039: three totals across
+four sites don't identify a site. Random effects and V3 would need many more totals (a likelihood
+over a τ² grid), from which single sites could be reconstructed, so they stay refused.
+
+**Masking (`federation/secure_sum.py`).** Each value is turned into an integer
+(round(x·2^40), "fixed point") and stored modulo 2^64; negatives wrap around (two's complement), so
+−3 is 2^64 − 3. Each pair of clients shares a pseudo-random stream; the client earlier in sorted
+order adds it, the later one subtracts it. One client's masked vector looks like noise (the tests check it
+is uncorrelated with its true values, and that a sum over all but one client is noise too). Over
+all clients every stream appears once with + and once with −, so the masks cancel exactly and
+the server decodes the true integer totals. Streams come from SHAKE-256 (standard library, fixed
+by its standard; numpy's generators can change their streams across versions).
+
+**Choosing the bits.** On the real summaries the largest w at any site is 920 (SpaceX-16-ISST,
+SE 0.033); the largest |w·y| is 119 and the largest w·y² 136. To keep every sum of K = 4 values
+inside 2^63, each encoded value must stay below 2^61, i.e. |x| < 2.1 × 10⁶ at 40 fraction bits:
+about 2,280 times the largest value seen, so a site with much smaller SEs still fits. Anything
+larger is **refused, not wrapped**: a silent wrap would turn a large positive total into a large
+negative one. Each value is off by at most 2^−41 ≈ 4.5e-13. *Alternative:* 32 fraction bits
+(a 580,000× margin, 256× the error); both work, and 40 gives the tighter match.
+
+**How close to plain pooling it must be.** Rounding moves each total by at most
+ε = k·2^−41 (k sites for the gene). Then the estimate moves by at most ε(1 + |est|)/(Σw − ε), and
+Q by at most ε + (2ε|est|Σw + ε² + est²Σw·ε)/(Σw − ε). These grow when Σw is small, so a fixed
+tolerance of 2^−40 (what CONTRACTS §6.3 first said) can't hold for every gene; the per-gene bound
+replaced it. Q is computed from the exact integer totals as a fraction, so the subtraction in
+Σw·y² − (Σw·y)²/Σw, which loses digits badly in floating point when Q is small, loses none here.
+
+**Result (`jobs/phase3a_meta/check_secure_sum.py`).** Masked against plain pooling of the same
+per-site summaries, and against the existing schema-2 tables: both strata, both count matrices,
+complete-case and ≥ 3-site plans. Every gene is inside its bound. The largest differences are
+2.2e-12 for the estimate (0.72 of its bound) and 9.9e-12 for Q (0.88 of its bound). The `fe_hit`
+and `het_flag` sets are identical everywhere. The nearest gene to the q = 0.05 line sits 1.4e-5
+from it, and q moved by at most 5e-13. The restricted-profile FLARE runs (DE rerun at every site)
+give the same: ISS 1,926 FE hits and 2,932 heterogeneity flags, Earth 1,722 and 3,986, identical
+to the open-profile tables. So under the restricted profile the "these missions" answer and its
+heterogeneity annotation are exactly the open-profile ones; what is lost is V3 ("a new mission")
+and every per-site diagnostic, including leave-SpaceX-16-out (refused by differencing).
+
+**Job specs.** `job.py --spec` runs a §6 spec. Clients check that their own inclusion flags are the
+ones the gene plan was built from, and send values only for the plan's genes, minus any genes a
+policy refused (those are left out of the vectors entirely, so the server never sums them). A
+plain spec sends per-site summaries restricted to the plan's genes, and the released table
+carries only the requested methods' columns, with `methods_run` and `aggregation` in its
+metadata.
 
 ## 8. Agent and grounding
-TODO: tools, planning, grounding rule and checker, trace format.
+The agent answers one question by calling tools, records every call and decision in a trace, and
+writes a report whose claims cite IDs from its own tool results. The grounding checker then grades
+the report against the trace. §8.1 is the KG tool; §8.2–§8.5 are the trace, the grounding
+checker, the policy and results tools, and the model interface (WS-15 part A). The agent loop and
+the report builder come with `job.submit` (WS-15 part B).
 
 ### 8.1 KG explanation: the `kg.query` tool (WS-14; D-033, D-038)
 
@@ -570,6 +643,105 @@ caches the top 25 ISS fixed-effect hits.
 - The server reports errors as prose with `isError: false`.
 - The reply's first line, `total_rows:`, also contains `rows:`.
 - A gene ID passed as an integer silently matches nothing.
+
+### 8.2 The trace (CONTRACTS §8)
+One JSON Lines file per run under `$FEDKG_WORKDIR/traces/`. In order: what was asked
+(`run_start`, with the model and tool versions), every tool call and its result, every decision
+with its reason and the calls it was based on, every model request (`model_call`: which model
+answered, why it stopped, tokens; no prompts, no keys), the report, the grounding verdict, and
+`run_end`.
+- **Append-only, then sealed.** The writer never rewrites a line; after `run_end` it refuses
+  appends and makes the file read-only. A crash leaves a valid prefix.
+- **Hash chain.** Each record stores the previous record's hash and its own. Editing, removing or
+  reordering a record breaks the chain, and the reader refuses the file. This matters because the
+  grounding verdict is only as good as the file: if a tool result could be edited afterwards to
+  contain a cited ID, an invented citation would pass. Like the release log, this is
+  tamper-evident, not tamper-proof: whoever can rewrite the whole file can rebuild the chain.
+- *Alternative: chmod only.* Nothing a later reader could check. *Alternative: one hash at the
+  end.* An unfinished trace couldn't be checked at all.
+
+### 8.3 Grounding: is every claim backed by this run's own tool results?
+A claim has a kind (`result`, `kg_fact`, `policy`, `caveat`, `site`) and citations, each "this ID,
+as returned by that call". The checker reads only the trace and applies five rules:
+1. the cited ID is in the `ids` of the named call's result, recorded before the report;
+2. that call's tool can support the claim's kind (a gene ID from the KG can't back a statement
+   about the federated result, even though it's the same ID);
+3. every ID-shaped token in the claim's text has a valid citation, so a claim can't cite one ID
+   and slip in others;
+4. IDs that appear in no tool result at all, cited or merely mentioned, are listed as fabricated;
+5. a claim with no valid citation is unsupported.
+
+**What counts as an ID in text.** Fixed forms (CURIEs, OSD accessions and comparison IDs, KG edge
+keys, project run-time IDs, `note:` IDs) are matched by pattern, longest first, so an edge key
+that contains two gene IDs is one token and a comparison ID isn't read as its `OSD-<n>` prefix.
+Mission, site and client names have no reliable pattern (`SpaceX-16-ISST`, `Soyuz_TMA-14`), so
+they are recognised two ways: names some tool listed in this trace, and any word of slug shape (a
+capital letter, a `-` or `_` part, a digit), which catches a mission name no tool returned. Gene
+symbols are names, not IDs: a slug-shaped word that is a gene symbol in the trace's results
+(`Nkx2-1`) needs no citation and is never counted as fabricated. The cost of the slug shape is
+that ordinary words of that shape count too, so the report writes "top 10" and states caveats in
+words.
+- *Alternative: patterns only, no slugs.* "The result holds without SpaceX-99" would pass.
+- *Alternative: a fixed list of mission names.* It would have to come from outside the trace, and
+  the checker's point is that it needs nothing but the trace.
+
+**What it doesn't check:** whether the text says what the cited result says (a claim citing a
+negative estimate while saying "higher"). That needs per-kind semantics; the report builder
+writes claims from tool data, and the checker guards the IDs.
+
+**Caveats are citable.** `results.read` returns the caveats that apply to the release it reads,
+each a fixed sentence with an ID (`note:time-of-day`). A caveat claim cites that ID, so a dropped
+or reworded caveat is visible in the trace. The phase 3a findings (the SpaceX-16 dependence, the
+rhythmic-gene share, SpaceX-8 staying in) attach only to releases of that analysis, and the ones
+that need per-site estimates only to plain releases. Under the restricted profile the report
+says instead that those checks were refused, with the refusing decision.
+
+### 8.4 Policy tools and the plan check
+`sites.list` reports the registry (from the manifests) and recomputes each client's inclusion-flag
+hash from the released flags; a mismatch is an error, because the per-gene checks and the gene
+plan are built from those flags. `policy.check` wraps the evaluator of §7 unchanged and returns
+the decision record plus the exact spec to submit.
+
+**The plan check.** The release log is first come, first served, so which of two conflicting
+releases the federation gets would otherwise depend on the order the agent happened to submit
+them. `policy.check_plan` takes every release the agent intends to make and checks them in order
+on a temporary copy of the log, as if each allowed one had been released; the real log is never
+written. For each refusal it reports whether the spec would be allowed alone, which earlier specs
+cause the refusal, and whether the conflict holds in both orders. The agent then records which
+release it keeps as a `plan` decision. Example, restricted profile, ISS (fake genes, `tests/
+test_tool_policy.py`): after the main result over all four clients and "without SpaceX-8",
+"without SpaceX-16" is refused by SpaceX-16's differencing rule. It conflicts with **both**
+earlier releases, each on its own: main − without-SpaceX-16 is SpaceX-16 alone, and
+without-SpaceX-8 − without-SpaceX-16 is SpaceX-16 minus SpaceX-8, a two-site group, smaller than
+the rule's minimum of three. Both conflicts are mutual.
+- *Alternative: accept first come, first served as a limitation.* The decision would be made by
+  arrival order, silently.
+- *Alternative: an in-memory dry-run mode in the evaluator.* It would duplicate how the log builds
+  contributor rows; copying the log and using the real append is exact by construction.
+
+**Reading results.** `results.read` reads only released results, through a release record that
+ties a release ID in the log to a table and its hash. It never returns per-site columns, whatever
+the aggregation. A tool that could read any table on disk would make the policy layer optional.
+
+### 8.5 The model interface
+The agent talks to models through one small internal interface with two adapters: an
+OpenAI-compatible adapter (NVIDIA NIM and most hosted providers) and Claude's native Messages API.
+Both are plain HTTP. The interface carries three things, which each adapter translates: tool
+definitions, the tool calls a model makes, and the results sent back.
+- Our tool names contain dots, which neither API allows; the adapters map `.` to `_` and back.
+- Every argument is validated by our own code before a tool runs, even where the provider promises
+  schema-exact arguments (an OpenAI-compatible server may ignore that, or send arguments that
+  aren't JSON). A bad call gets an error result; the tool doesn't run.
+- With Claude, the assistant's turns are sent back exactly as received, because current models
+  check that their earlier reasoning blocks come back unchanged; the conversation is append-only.
+- Refusal fallbacks (the provider answering with another model) are off by default. A refusal is
+  recorded as a model error, and the deterministic planner finishes the run. The model that
+  actually answered is recorded for every request.
+- API keys are read from environment variables at request time and never reach a trace, a log or
+  an error message (tested with a fake key).
+- *Alternative: one OpenAI-compatible client for both, using Anthropic's compatibility layer.*
+  That layer is meant for quick checks and ignores strict schemas. *Alternative: the official
+  SDKs.* The usual route; not used, to keep the runtime free of new dependencies.
 
 ## 9. Evaluation
 TODO: metrics, uncertainty, what counts as federation "helping."
