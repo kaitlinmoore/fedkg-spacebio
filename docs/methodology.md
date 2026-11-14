@@ -359,7 +359,137 @@ Full write-up: [`phase3a-time-of-day.md`](phase3a-time-of-day.md).
 TODO: shim design adapted from FLUID (Casaletto et al., 2025), loss-of-signal model, aggregation under stragglers.
 
 ## 7. Governance and policy enforcement
-TODO
+Code: `fedkg_spacebio.policy` (evaluator, release log, differencing) and
+`fedkg_spacebio.federation.jobspec` / `gene_plan`. Contracts: CONTRACTS §5 (policies, decision
+record, release log) and §6 (job spec). **The policies are invented for the testbed.** The real
+missions declared no such rules; the policies exist so that enforcement can be tested on real
+between-study structure. Nothing here claims to solve an actual privacy problem.
+
+### 7.1 What is checked, and in what order
+Before any job runs, the policy check takes the job spec, every relevant policy, the site
+registry (manifests) and the release log, and returns **allow** or **deny** with the rule that
+decided it. Order (CONTRACTS §5.4):
+1. **Spec checks** (`spec#…`): is the spec coherent with the contract tables and the registry
+   (known clients in the right stratum, methods of this task, outputs that meet each method's
+   need, aggregation matching the outputs, the task's weighting, gene plan and exclusion files
+   matching their hashes, manifests matching theirs)? If not, deny and stop: a policy's verdict on
+   an incoherent spec would mean nothing.
+2. **The project policy** (nothing per sample leaves a site; FedAvg weighting, D-017).
+3. **Each site in the job**, in client order, rules in file order.
+4. **Every other site in the stratum, differencing rules only.** A release that asks nothing of a
+   site can still reveal it by subtraction.
+
+Every policy defaults to deny, deny overrides allow, and the decision lists **every** failure, so
+one answer tells the agent everything it would have to change. The deciding rule is the first
+failure. The decision record names the spec hash, every policy file hash and the log head it was
+checked against, so it can be recomputed later.
+
+Two profiles share all files except SpaceX-16's: **open** (every site allows per-site summaries)
+and **restricted** (SpaceX-16 allows only masked contributions to a secure sum, and adds a
+differencing rule with `min_sites: 3`). Example A (CONTRACTS §5.5) is the point of the pair: the
+full method set (FE, FE with heterogeneity, REML+HKSJ, V3) is allowed under open and refused
+under restricted by `pol:SpaceX-16:2#release`, because heterogeneity methods need each site's own
+estimate. The re-planned job (FE only, masked, secure sum) is allowed. That is the
+accuracy/privacy trade made visible: under the restricted profile the analysis can answer
+question A ("changed in these missions", §5.5) but not B.
+
+### 7.2 Per-gene minimum k
+In phase 3a the set of sites pooled for a gene varies by gene (inclusion thresholds, ≥ 3-site
+variants, leave-one-out runs). So "at least 3 sites" is checked **per gene**: before the job,
+the coordinator builds a **gene plan** (which clients contribute to which gene) from the
+inclusion flags each site released as metadata, and the spec names it by hash. A site's
+`min_aggregation` rule fails on every gene it contributes to that pools fewer than `min_sites`
+sites, and on any of its clients with fewer than `min_n_per_arm` animals per arm (or no declared
+count). k counts sites, whatever they send: a job asking one site for its own summary has k = 1.
+
+### 7.3 Differencing: the check that needs a memory
+Two releases can each pool ≥ 3 sites and still reveal one site when subtracted. Catching that
+needs to know what was released before, so every release is written to an **append-only,
+hash-chained release log** that records, per gene, which clients contributed (no output values).
+The log can't be cleared: a "reset" starts a new log and records the switch, because a clearable
+log would let the check be bypassed by clearing it between two requests.
+
+**The test.** For one gene, write each logged release and the proposed one as a 0/1 row over the
+stratum's clients (1 = contributed). A per-site summary adds its own single-client row (the
+receiver reads that value directly); a masked contribution doesn't (only the sum is readable).
+Anyone holding the results can form any combination cᵀR of the rows. Site i, protected with
+`min_sites = m`, fails if some combination is non-zero at i and zero outside a group T that
+contains i and covers fewer than m sites: the releases then give i's own value, or the total of
+a small group including it.
+
+The equivalent statement that is computed: **column i of R is not in the span of the columns
+outside T.** (A combination zero outside T is a vector c orthogonal to every column outside T; it
+can be non-zero at i exactly when column i has a part orthogonal to those columns.) Each test is
+a tiny linear system, solved in exact rational arithmetic, because a policy decision shouldn't
+depend on a floating-point tolerance. Exposure only grows with T, so only the largest allowed
+groups need testing: SpaceX-16's own column plus the columns of one other site, for m = 3.
+Genes with the same set of release rows share one answer; on 20,000 genes with 7 clients the
+check takes a fraction of a second.
+
+**Example B by hand** (CONTRACTS §5.5; columns A = SpaceX-4, B = SpaceX-8, C = SpaceX-13,
+D = SpaceX-16; restricted profile; every release is a masked FE). Already released for gene
+FAKE:0001: R1 (complete case, all four), R2 (≥ 3 sites, all four contribute to this gene) and
+J3 (without SpaceX-8):
+
+| release | A | B | C | D |
+|---|---|---|---|---|
+| R1 | 1 | 1 | 1 | 1 |
+| R2 | 1 | 1 | 1 | 1 |
+| J3 | 1 | 0 | 1 | 1 |
+
+*J4: FE without SpaceX-16, complete case over A, B, C.* Proposed row 1 1 1 0. Then
+R1 − J4 = 0 0 0 1: D's own contribution, a group of one site. In the span form: with T = {D},
+the columns outside T are A = (1,1,1,1), B = (1,1,0,1), C = (1,1,1,1) (over the rows R1, R2, J3,
+J4), and D's column is (1,1,1,0). Any combination a·A + b·B + c·C = (a+b+c, a+b+c, a+c, a+b+c)
+has equal first and fourth entries, but D's are 1 and 0. So D's column is not in the span, and J4 is
+refused by `pol:SpaceX-16:2#diff`, even though it asks nothing of SpaceX-16. On gene FAKE:0004
+(SpaceX-16 never tested it) D's column is all zeros, so nothing about D can be revealed: the gene
+passes, and resubmitting J4 without FAKE:0001 is allowed.
+
+*J5: SpaceX-4's own per-site summary.* Proposed row 1 0 0 0. J3 − J5 = 0 0 1 1: the sum C + D,
+a group of 2 sites < 3. With T = {C, D}, the columns outside T are A = (1,1,1,1) and
+B = (1,1,0,0) (rows R1, R2, J3, J5); D's column is (1,1,1,0). a·A + b·B = (a+b, a+b, a, a) has
+equal third and fourth entries; D's are 1 and 0, so D is exposed within {C, D}. J5 is refused,
+but first by SpaceX-4's own minimum-k rule (k = 1), which comes earlier in evaluation order;
+SpaceX-16's differencing failure is listed as well.
+
+**What the log is and isn't.** It is tamper-evident: each entry hashes the previous one, every
+contributor file is checked against its hash, and decision records name the head they saw, which
+catches entries removed from the end. It is not tamper-proof: whoever can rewrite every file can
+rebuild the chain. A real deployment would anchor the head outside the coordinator. A release is
+logged only under the decision that allowed it and only if the log hasn't moved since that
+decision; otherwise two checks against the same state could each pass and then combine.
+
+Differencing compares across counts and inclusion variants (D-033): their per-site values are
+nearly identical, so subtracting a standard-count release from an rRNA-removed one leaks
+approximately. It doesn't compare across tasks (a clock-plane chord and a log2FC are different
+quantities) or strata (different clients).
+
+### 7.4 FedAvg weighting (D-017)
+FLARE 2.9.1 silently weights a client 1.0 when its n_k is missing or unusable. The project
+policy refuses a FedAvg job unless it declares `sample_count` weighting and every client's
+manifest declares a usable n_k (the same check as the client helper, §5.2), or declares
+`equal`/`custom` weights with a reason.
+
+### 7.5 Alternatives considered
+- **A general policy engine (OPA/Rego, Cedar).** Built for exactly this, but the rules here are
+  six fixed kinds with numeric parameters, and the per-gene checks need exact linear algebra
+  that the engine would call out to anyway. Small typed models keep each rule readable in one
+  place.
+- **Per-job minimum k only.** Misses per-gene variation (§7.2).
+- **"No two releases differ by one site."** Misses combinations of three or more releases
+  (J5's J3 − J5 = C + D) and per-site summaries mixed with masked sums.
+- **Floating-point rank tests.** Right answer at this size, but a tolerance is the wrong kind of
+  argument for a policy decision.
+- **Masking the inclusion flags.** Would hide which genes pass each site's expression threshold,
+  but then no per-gene check could run before submission (CONTRACTS §5.1).
+
+### 7.6 What isn't built yet
+The check decides; nothing yet refuses to *run* a job without an allow. That gate is
+`job.submit` (CONTRACTS §7, with the agent tools). The masked sum itself (§6.3) and the
+server-side n_k check are WS-13. `jobs/phase3a_meta/job.py --profile` sets the manifests' policy
+IDs and keeps the profiles' outputs apart, but it runs whatever it is told. No DP mechanism
+exists, so a policy requiring DP refuses every job.
 
 ## 8. Agent and grounding
 TODO: tools, planning, grounding rule and checker, trace format.

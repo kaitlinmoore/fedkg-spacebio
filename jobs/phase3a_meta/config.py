@@ -6,6 +6,19 @@ Both paths import from here, so they can't drift apart.
 import os
 from pathlib import Path
 
+from fedkg_spacebio.policy.schema import load_profile
+
+REPO = Path(__file__).resolve().parents[2]
+POLICIES = REPO / "policies"
+
+# Policy profiles (D-036; CONTRACTS §5.5). The two differ only in SpaceX-16's policy. The policy
+# files are the single source of each site's policy_id; the manifests copy it from them.
+# Paths: the open profile keeps the paths every earlier run used, so existing manifests and
+# results stay where they are. Any other profile adds profiles/<profile>/, so two profiles never
+# overwrite each other's manifests or results. (Alternative: <profile>/ in every path. It is
+# symmetric, but it would move every existing output.)
+PROFILES = ("open", "restricted")
+
 # Check 1 tolerance (federated vs central pooling). Both paths run the same float64 code on the
 # same summaries. The only differences possible are float rounding in serialization (none
 # expected: FLARE moves numpy arrays as binary) and summation order (none: matrices are
@@ -27,8 +40,20 @@ def sim_workspace_root() -> Path:
     return Path(env) if env else workdir() / "flare-sim"
 
 
-def manifest_dir(counts: str, root: Path | None = None) -> Path:
-    return (root or workdir()) / "phase3a" / "manifests" / counts
+def _profile_part(profile: str) -> tuple[str, ...]:
+    if profile not in PROFILES:
+        raise ValueError(f"unknown policy profile {profile!r}; expected one of {PROFILES}")
+    return () if profile == "open" else ("profiles", profile)
+
+
+def policy_ids(profile: str) -> dict[str, str]:
+    """site → policy_id, read from ``policies/<profile>/`` (what the manifests must carry)."""
+    _profile_part(profile)
+    return load_profile(POLICIES / profile).site_policy_ids()
+
+
+def manifest_dir(counts: str, root: Path | None = None, profile: str = "open") -> Path:
+    return (root or workdir()).joinpath("phase3a", "manifests", *_profile_part(profile), counts)
 
 
 def data_root(root: Path | None = None) -> Path:
@@ -40,9 +65,11 @@ def annotation_path(root: Path | None = None) -> Path:
             / "Mus_musculus.GRCm39.112-GL-annotations.tsv")
 
 
-def results_dir(stratum: str, counts: str, path: str, root: Path | None = None) -> Path:
+def results_dir(stratum: str, counts: str, path: str, root: Path | None = None,
+                profile: str = "open") -> Path:
     """``path`` is ``flare`` or ``central``."""
-    return (root or workdir()) / "results" / "phase3a" / stratum / counts / path
+    return (root or workdir()).joinpath("results", "phase3a", *_profile_part(profile), stratum,
+                                        counts, path)
 
 
 def job_name(stratum: str, counts: str) -> str:
