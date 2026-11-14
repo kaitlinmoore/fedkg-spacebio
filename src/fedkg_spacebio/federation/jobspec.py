@@ -78,11 +78,17 @@ class MethodNeed:
 # §5.2. ``per_sample`` carries everything any method could use, so it "covers" every method;
 # the project policy then refuses it by name. ``per_site_summary`` covers ``fe`` too (FE is a
 # function of each site's estimate and SE, so the server can compute it from the summaries).
+# ``fe_het`` accepts ``masked_contribution`` since WS-13 (D-039): Cochran's Q and I² across all
+# clients are functions of three totals, Σw·y², Σw·y and Σw, which the secure sum delivers
+# without any site's estimate. Q over a subset that leaves a site out is still a new release
+# checked by differencing. The random-effects methods stay per-site only (D-039's caution).
 METHODS: dict[str, MethodNeed] = {
     "fe": MethodNeed("de_meta", frozenset({"masked_contribution", "per_site_summary",
                                            "per_sample"})),
+    "fe_het": MethodNeed("de_meta", frozenset({"masked_contribution", "per_site_summary",
+                                               "per_sample"})),
     **{m: MethodNeed("de_meta", frozenset({"per_site_summary", "per_sample"}))
-       for m in ("fe_het", "reml_hksj", "v2", "v3")},
+       for m in ("reml_hksj", "v2", "v3")},
     "clock_plane": MethodNeed("clock_plane", frozenset({"per_site_summary", "per_sample"})),
     "fedavg": MethodNeed("fedavg_classifier", frozenset({"model_update", "per_sample"})),
 }
@@ -185,6 +191,9 @@ class Inclusion(_Model):
     min_sites_per_gene: Literal["all"] | PositiveInt
 
 
+MAX_MODULUS_BITS = 64  # §6.3: the secure sum's uint64 arithmetic
+
+
 class Aggregation(_Model):
     strategy: Literal["plain", "secure_sum"]
     fixed_point_bits: PositiveInt | None = None
@@ -198,6 +207,11 @@ class Aggregation(_Model):
                 raise ValueError("secure_sum needs fixed_point_bits and modulus_bits (§6.3)")
             if self.fixed_point_bits >= self.modulus_bits:
                 raise ValueError("fixed_point_bits must be smaller than modulus_bits")
+            # The secure sum works in uint64 arithmetic, i.e. modulo 2^64 (WS-13, D-042). A larger
+            # modulus can't be run, so it's a malformed spec, not a run-time surprise.
+            if self.modulus_bits > MAX_MODULUS_BITS:
+                raise ValueError(f"modulus_bits must be at most {MAX_MODULUS_BITS} (the secure "
+                                 f"sum runs modulo 2^64), got {self.modulus_bits}")
         elif bits != (None, None):
             raise ValueError("fixed_point_bits and modulus_bits apply to secure_sum only")
         return self

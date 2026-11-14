@@ -15,7 +15,7 @@ outputs:
   SpaceX-8: masked_contribution
   SpaceX-13-ISST: masked_contribution
   SpaceX-16-ISST: masked_contribution
-aggregation: {strategy: secure_sum, fixed_point_bits: 32, modulus_bits: 64}
+aggregation: {strategy: secure_sum, fixed_point_bits: 40, modulus_bits: 64}
 weighting: {scheme: inverse_variance}
 rounds: 1
 split: null

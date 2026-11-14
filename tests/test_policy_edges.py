@@ -180,10 +180,12 @@ def test_output_that_doesnt_cover_a_method(tmp_path):
     env = make_env(tmp_path, "open")
     outputs = {A: "masked_contribution", B: "per_site_summary", C: "per_site_summary",
                D: "per_site_summary"}
-    _, dec = check(env, fe(env, methods=["fe", "fe_het"], outputs=outputs,
+    # v3, not fe_het: since WS-13 (D-039) a masked contribution serves fe_het (Q and I² come
+    # from three masked totals), but V3 still needs each site's estimate and SE.
+    _, dec = check(env, fe(env, methods=["fe", "v3"], outputs=outputs,
                            aggregation={"strategy": "plain"}))
     assert dec.deciding_rule == "spec#outputs-cover"
-    assert "fe_het" in dec.reason and "SpaceX-4" in dec.reason
+    assert "v3" in dec.reason and "SpaceX-4" in dec.reason
 
 
 @pytest.mark.parametrize("outputs", [

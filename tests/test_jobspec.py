@@ -12,6 +12,8 @@ from datetime import UTC, datetime
 
 import pytest
 import yaml
+
+from fedkg_spacebio import ids
 from fedkg_spacebio.federation.jobspec import (
     METHODS,
     OUTPUT_KINDS,
@@ -24,8 +26,6 @@ from fedkg_spacebio.federation.jobspec import (
     spec_to_dict,
     with_job_id,
 )
-
-from fedkg_spacebio import ids
 from policy_helpers import SPECS
 
 
@@ -54,7 +54,7 @@ def test_fields_are_read_as_documented():
     assert spec.inclusion.min_sites_per_gene == "all"
     assert spec.gene_plan.ref == "plans/job-FAKE-0002/gene_plan.csv"
     assert spec.aggregation.strategy == "secure_sum"
-    assert spec.aggregation.fixed_point_bits == 32
+    assert spec.aggregation.fixed_point_bits == 40  # §6.4 example (WS-13 choice)
     assert spec.weighting.scheme == "inverse_variance"
     assert spec.provenance.manifest_sha256["SpaceX-8"] == "FAKE-sha256-0006"
     assert spec.provenance.inclusion_flags_sha256["SpaceX-16-ISST"] == "FAKE-sha256-0015"
@@ -68,7 +68,10 @@ def test_contract_tables_match_section_5_2():
     assert set(METHODS) == {"fe", "fe_het", "reml_hksj", "v2", "v3", "clock_plane", "fedavg"}
     assert METHODS["fe"].task == "de_meta"
     assert {"masked_contribution", "per_site_summary"} <= set(METHODS["fe"].outputs)
-    for m in ("fe_het", "reml_hksj", "v2", "v3", "clock_plane"):
+    # fe_het takes masked contributions since WS-13 (D-039): Q and I² need only the totals
+    # Σw·y², Σw·y and Σw, which the secure sum delivers without any site's estimate.
+    assert {"masked_contribution", "per_site_summary"} <= set(METHODS["fe_het"].outputs)
+    for m in ("reml_hksj", "v2", "v3", "clock_plane"):
         assert "masked_contribution" not in METHODS[m].outputs
         assert "per_site_summary" in METHODS[m].outputs
     assert "model_update" in METHODS["fedavg"].outputs
@@ -108,6 +111,7 @@ BROKEN = {
     "plan without ref": lambda d: d["gene_plan"].pop("ref"),
     "unknown strategy": lambda d: d["aggregation"].update(strategy="trusted_party"),
     "secure_sum without bits": lambda d: d["aggregation"].pop("modulus_bits"),
+    "modulus above 64 bits": lambda d: d["aggregation"].update(modulus_bits=65),
     "plain with bits": lambda d: d.update(aggregation={"strategy": "plain",
                                                        "fixed_point_bits": 32}),
     "unknown weighting scheme": lambda d: d["weighting"].update(scheme="by_vibes"),
@@ -283,3 +287,13 @@ def test_sha256_forms():
     assert not ids.is_sha256("FAKE-sha256-0003", allow_fake=False)
     assert not ids.is_sha256("A" * 64)  # lowercase only
     assert not ids.is_sha256("abc")
+
+
+def test_modulus_bits_above_64_is_a_parse_error():
+    """§6.3: the secure sum runs modulo 2^64, so modulus_bits > 64 can't be run (WS-13)."""
+    d = raw()
+    d["aggregation"] = {"strategy": "secure_sum", "fixed_point_bits": 40, "modulus_bits": 65}
+    with pytest.raises(JobSpecError, match="modulus_bits must be at most 64"):
+        parse_job_spec(d)
+    d["aggregation"]["modulus_bits"] = 64
+    assert parse_job_spec(d).aggregation.modulus_bits == 64

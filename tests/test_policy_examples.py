@@ -50,10 +50,13 @@ def test_a_full_set_denied_by_spacex16_release(tmp_path):
     assert dec.deciding_rule == SPACEX16_RELEASE
     p16 = env.profile.sites["SpaceX-16"].policy
     assert dec.reason.startswith(p16.rules[1].reason)
-    for m in ("fe_het", "reml_hksj", "v3"):
+    for m in ("reml_hksj", "v3"):
         assert m in dec.reason
     assert "SpaceX-16-ISST" in dec.reason
     assert "fe," not in dec.reason  # fe can be served by a masked contribution
+    # So can fe_het since WS-13 (D-039): Q and I² across all clients need only three masked
+    # totals (Σw·y², Σw·y, Σw), so SpaceX-16's release rule doesn't block them.
+    assert "fe_het" not in dec.reason
     e = evals(dec)
     assert e[SPACEX16_RELEASE].detail == "per_site_summary requested from SpaceX-16-ISST"
     assert e["pol:project:1#no-per-sample"].result == "pass"
