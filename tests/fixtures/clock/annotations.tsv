@@ -1,0 +1,9 @@
+ENSEMBL	SYMBOL	GENENAME	ENTREZID
+FAKEENSG1001	Fakeclock1	fake clock gene 1	9000001001
+FAKEENSG1002	Fakeclock2	fake clock gene 2	9000001002
+FAKEENSG1003	Fakeclock3	fake clock gene 3	9000001003
+FAKEENSG1004	Fakeclock4	fake clock gene 4	9000001004
+FAKEENSG1005	Fakeclock5	fake clock gene 5	9000001005
+FAKEENSG1006	Fakeclock6	fake clock gene 6	9000001006
+FAKEENSG2001	Fakehk1	fake housekeeping 1	9000002001
+FAKEENSG2002	Fakehk2	fake housekeeping 2	9000002002

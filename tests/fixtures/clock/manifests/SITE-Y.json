@@ -1,0 +1,56 @@
+{
+ "client": "SITE-Y",
+ "site": "FAKE-MISSION-Y",
+ "stratum": "iss",
+ "design": "~ condition",
+ "contrast": [
+  "condition",
+  "flight",
+  "ground"
+ ],
+ "counts_variant": "standard",
+ "studies": [
+  "OSD-FAKE-9"
+ ],
+ "sources": [
+  {
+   "osd_id": "OSD-FAKE-9",
+   "counts_file": "OSD-FAKE-9/GLDS-FAKE-9_rna_seq_RSEM_Unnormalized_Counts_GLbulkRNAseq.csv",
+   "samples": [
+    {
+     "sample": "Y_FLT_1",
+     "animal": "OSD-FAKE-9:Y_FLT_1",
+     "arm": "flight"
+    },
+    {
+     "sample": "Y_FLT_2",
+     "animal": "OSD-FAKE-9:Y_FLT_2",
+     "arm": "flight"
+    },
+    {
+     "sample": "Y_FLT_3",
+     "animal": "OSD-FAKE-9:Y_FLT_3",
+     "arm": "flight"
+    },
+    {
+     "sample": "Y_GC_1",
+     "animal": "OSD-FAKE-9:Y_GC_1",
+     "arm": "ground"
+    },
+    {
+     "sample": "Y_GC_2",
+     "animal": "OSD-FAKE-9:Y_GC_2",
+     "arm": "ground"
+    },
+    {
+     "sample": "Y_GC_3",
+     "animal": "OSD-FAKE-9:Y_GC_3",
+     "arm": "ground"
+    }
+   ]
+  }
+ ],
+ "census_rows": [],
+ "n_flight": 3,
+ "n_ground": 3
+}
