@@ -33,5 +33,13 @@ def sim_workspace_root() -> Path:
     return Path(env) if env else workdir() / "flare-sim"
 
 
-def job_name(weighting: str) -> str:
-    return "fedavg_check" if weighting == "samples" else "fedavg_check_equal"
+# The three ways job.py can run, and the in-process reference each must match:
+# - samples:  clients send n_k (the default; D-017);
+# - equal:    clients send an explicit weight of 1 (declared equal weighting);
+# - omit_n_k: demo only, clients send no weight, and FLARE silently falls back to 1.0.
+MODES = {"samples": "samples", "equal": "equal", "omit_n_k": "equal"}
+
+
+def job_name(mode: str) -> str:
+    return {"samples": "fedavg_check", "equal": "fedavg_check_equal",
+            "omit_n_k": "fedavg_check_omit_n_k"}[mode]

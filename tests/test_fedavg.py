@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from fedkg_spacebio.federation.fedavg import fedavg
+from fedkg_spacebio.federation.fedavg_client import N_K_KEY, check_n_k, fedavg_result, require_n_k
 from fedkg_spacebio.federation.logreg import centralized_gd, run_fedavg_inprocess
 from fedkg_spacebio.federation.synthetic import SITE_NAMES, make_all_sites, make_site_data, pool
 
@@ -175,27 +176,128 @@ def test_weighting_changes_the_result_on_heterogeneous_sites():
     assert np.max(np.abs(by_n - equal)) > 1e-2
 
 
-# ---------------------------------------------------------------- FLARE end to end (slow)
+# ---------------------------------------------------------------- D-017: results carry n_k
+#
+# FLARE 2.9.1 silently replaces a missing, None, bool, non-numeric, non-finite or <= 0
+# NUM_STEPS_CURRENT_ROUND with 1.0 (equal weighting). These tests fail if our client path can
+# produce such a result. fedavg() above already refuses bad weights on our side of the check;
+# these cover the FLARE side.
 
 REPO = Path(__file__).resolve().parents[1]
 JOB_DIR = REPO / "jobs" / "fedavg_check"
 
+# Every value FLARE would silently turn into 1.0 (plus numeric strings, which FLARE would accept
+# via float() but which we refuse; see fedavg_client.py).
+BAD_N_K = [None, True, False, "12", "abc", [5], float("nan"), float("inf"), float("-inf"),
+           np.float64("nan"), 0, 0.0, -3, np.int64(0), np.int64(-1)]
+GOOD_N_K = [1, 50, 400, 2.5, np.int64(150), np.float64(7.0)]
+
+
+def _load_client():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fedavg_check_client", JOB_DIR / "client.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.mark.parametrize("bad", BAD_N_K, ids=repr)
+def test_check_n_k_refuses_what_flare_would_silently_reweight(bad):
+    with pytest.raises(ValueError, match="NUM_STEPS_CURRENT_ROUND"):
+        check_n_k(bad)
+
+
+@pytest.mark.parametrize("bad", BAD_N_K, ids=repr)
+def test_require_n_k_fails_a_result_with_an_unusable_n_k(bad):
+    with pytest.raises(ValueError, match="NUM_STEPS_CURRENT_ROUND"):
+        require_n_k({N_K_KEY: bad})
+
+
+@pytest.mark.parametrize("meta", [None, {}, {"other_key": 5}], ids=repr)
+def test_require_n_k_fails_a_result_without_n_k(meta):
+    with pytest.raises(ValueError, match="no NUM_STEPS_CURRENT_ROUND"):
+        require_n_k(meta)
+
+
+@pytest.mark.parametrize("bad", BAD_N_K, ids=repr)
+def test_fedavg_result_cannot_be_built_with_an_unusable_n_k(bad):
+    with pytest.raises(ValueError):
+        fedavg_result({"x": np.zeros(2)}, bad, current_round=0)
+
+
+@pytest.mark.parametrize("good", GOOD_N_K, ids=repr)
+def test_fedavg_result_always_carries_n_k(good):
+    r = fedavg_result({"x": np.zeros(2)}, good, current_round=3, metrics={"train_loss": 0.1})
+    assert require_n_k(r.meta) == float(good)
+    assert type(r.meta[N_K_KEY]) in (int, float)  # plain Python, not a numpy scalar
+    assert r.current_round == 3 and r.metrics == {"train_loss": 0.1}
+
+
+def test_n_k_key_is_flares():
+    from nvflare.apis.fl_constant import FLMetaKey
+    assert N_K_KEY == FLMetaKey.NUM_STEPS_CURRENT_ROUND == "NUM_STEPS_CURRENT_ROUND"
+
+
+@pytest.mark.parametrize("site", SITE_NAMES)
+def test_fedavg_check_client_result_carries_its_n_k(site):
+    """The real client script's round, run in-process: its result must carry n_k = n_samples."""
+    client = _load_client()
+    data = make_site_data(site, seed=0)
+    r = client.local_round(data, np.zeros(data.X.shape[1] + 1, dtype=np.float32), 0, lr=0.5,
+                           local_steps=2)
+    assert require_n_k(r.meta) == data.n_samples
+
+
+def test_fedavg_check_client_equal_weighting_is_explicit():
+    client = _load_client()
+    data = make_site_data("site-1", seed=0)
+    r = client.local_round(data, np.zeros(data.X.shape[1] + 1), 0, lr=0.5, local_steps=1,
+                           weighting="equal")
+    assert require_n_k(r.meta) == 1.0
+
+
+def test_fedavg_check_demo_omit_n_k_is_loud_and_caught():
+    """The demo bypass really omits n_k (so the slow test exercises FLARE's fallback), warns,
+    and the result is one require_n_k refuses."""
+    client = _load_client()
+    data = make_site_data("site-2", seed=0)
+    with pytest.warns(UserWarning, match="demo_omit_n_k"):
+        r = client.local_round(data, np.zeros(data.X.shape[1] + 1), 0, lr=0.5, local_steps=1,
+                               demo_omit_n_k=True)
+    assert N_K_KEY not in r.meta
+    with pytest.raises(ValueError):
+        require_n_k(r.meta)
+
+
+# ---------------------------------------------------------------- FLARE end to end (slow)
+
 
 @pytest.mark.slow
 def test_flare_fedavg_matches_reference():
-    """Run the FLARE simulator job, then reference.py, which exits 0 only if they match.
+    """Run the three FLARE simulator jobs, then reference.py, which exits 0 only if each matches
+    its reference:
+    - n_k weighting → our sample-weighted fedavg();
+    - explicit equal weights → our equal-weight fedavg();
+    - ``--demo_omit_n_k`` → our equal-weight fedavg() too. That's FLARE's silent fallback,
+      asserted on purpose: if a FLARE upgrade changes it, this test fails and D-017's notes
+      (and fedavg_client.py's list of fallback cases) need revisiting.
 
-    Runs in about a minute. Skipped by default; run with ``uv run pytest -m slow``. FLARE writes
+    Runs in a few minutes. Skipped by default; run with ``uv run pytest -m slow``. FLARE writes
     to $NVFLARE_SIMULATOR_WORKSPACE_ROOT (or $FEDKG_WORKDIR/flare-sim), never into the repo.
     """
     env = os.environ.copy()
     workdir = Path(env.get("FEDKG_WORKDIR", Path.home() / "fedkg-work"))
     env.setdefault("NVFLARE_SIMULATOR_WORKSPACE_ROOT", str(workdir / "flare-sim"))
-    for script, extra in (("job.py", []), ("reference.py", [])):
+    for script, extra in (("job.py", []), ("job.py", ["--weighting", "equal"]),
+                          ("job.py", ["--demo_omit_n_k"]), ("reference.py", ["--require-all"])):
         proc = subprocess.run(
             [sys.executable, str(JOB_DIR / script), *extra],
             env=env, capture_output=True, text=True, timeout=600,
         )
         tail = f"{proc.stdout[-3000:]}\n{proc.stderr[-3000:]}"
         assert proc.returncode == 0, f"{script} failed:\n{tail}"
-    assert "FLARE (n_k) vs matching reference" in proc.stdout
+    for label in ("FLARE (n_k)", "FLARE (equal)", "FLARE (omit n_k, demo)"):
+        line = next(ln for ln in proc.stdout.splitlines()
+                    if ln.startswith(f"{label} vs matching reference"))
+        assert "allclose=True" in line, line

@@ -4,13 +4,18 @@ Runs the protocol from job.py (same data, init, rounds, local steps
 and learning rate) with **no FLARE**: our own ``fedavg()`` does the aggregation. It then loads
 FLARE's final global model and compares.
 
-    uv run python jobs/fedavg_check/reference.py              # after job.py (both weightings)
+    uv run python jobs/fedavg_check/reference.py              # after job.py (any of its modes)
+    uv run python jobs/fedavg_check/reference.py --require-all  # all three FLARE runs must exist
     uv run python jobs/fedavg_check/reference.py --no-flare   # reference and baselines only
 
 Rows in the report:
 - FLARE (n_k): FLARE's FedAvg, with clients sending their sample count.
-- FLARE (equal): FLARE's FedAvg, with clients omitting it, so FLARE silently weights equally.
-- reference (n_k) / (equal): our fedavg() with the same two weightings.
+- FLARE (equal): clients send an explicit weight of 1 (declared equal weighting, D-017).
+- FLARE (omit n_k, demo): clients send no weight at all, so FLARE silently weights equally.
+  Matching the equal-weight reference here is the *expected* result: it shows the fallback is
+  still there. If a FLARE upgrade changes the fallback (e.g. it starts raising), this row fails
+  and the D-017 notes need revisiting.
+- reference (n_k) / (equal): our fedavg() with the two weightings.
 - centralized GD: gradient descent on the pooled data with the same step budget
   (NUM_ROUNDS × LOCAL_STEPS steps), as a sanity baseline.
 - centralized optimum: unpenalized logistic regression on the pooled data (sklearn), i.e. the
@@ -44,10 +49,10 @@ from fedkg_spacebio.federation.logreg import (  # noqa: E402
 from fedkg_spacebio.federation.synthetic import N_FEATURES, make_all_sites, pool  # noqa: E402
 
 
-def flare_model_path(weighting: str) -> Path:
+def flare_model_path(mode: str) -> Path:
     return (
         config.sim_workspace_root()
-        / config.job_name(weighting)
+        / config.job_name(mode)
         / "server/simulate_job/models/server.npy"
     )
 
@@ -59,6 +64,8 @@ def max_abs_diff(a: np.ndarray, b: np.ndarray) -> float:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-flare", action="store_true", help="skip loading FLARE results")
+    parser.add_argument("--require-all", action="store_true",
+                        help="fail if any of the three FLARE runs is missing (slow test)")
     parser.add_argument(
         "--out",
         type=Path,
@@ -93,12 +100,14 @@ def main():
     checks: dict[str, dict] = {}
     failed = False
     if not args.no_flare:
-        for weighting, label in (("samples", "FLARE (n_k)"), ("equal", "FLARE (equal)")):
-            path = flare_model_path(weighting)
+        runs = (("samples", "FLARE (n_k)", ""), ("equal", "FLARE (equal)", " --weighting equal"),
+                ("omit_n_k", "FLARE (omit n_k, demo)", " --demo_omit_n_k"))
+        for mode, label, flag in runs:
+            path = flare_model_path(mode)
             if not path.exists():
                 print(f"[missing] {label}: {path}")
-                print(f"  run: uv run python jobs/fedavg_check/job.py --weighting {weighting}")
-                failed |= weighting == "samples"
+                print(f"  run: uv run python jobs/fedavg_check/job.py{flag}")
+                failed |= mode == "samples" or args.require_all
                 continue
             # FLARE saves server.npy after every round, so a file can exist while a run is still
             # going (or after one crashed). Only trust it if the server log shows the run finished.
@@ -109,7 +118,7 @@ def main():
                 continue
             flare_theta = np.load(path)
             models[label] = flare_theta
-            ref = models["reference (n_k)" if weighting == "samples" else "reference (equal)"]
+            ref = models[f"reference ({'n_k' if config.MODES[mode] == 'samples' else 'equal'})"]
             ok = bool(np.allclose(flare_theta, ref, rtol=config.RTOL, atol=config.ATOL))
             checks[f"{label} vs matching reference"] = {
                 "max_abs_diff": max_abs_diff(flare_theta, ref),
@@ -143,8 +152,8 @@ def main():
     )
     print(header)
     print("-" * len(header))
-    order = ["FLARE (n_k)", "reference (n_k)", "FLARE (equal)", "reference (equal)",
-             "centralized GD", "centralized optimum"]
+    order = ["FLARE (n_k)", "reference (n_k)", "FLARE (equal)", "FLARE (omit n_k, demo)",
+             "reference (equal)", "centralized GD", "centralized optimum"]
     rows = {}
     for name in order:
         if name not in models:
