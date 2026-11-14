@@ -1,0 +1,14 @@
+# INVENTED FOR THE TESTBED. No real mission declared this policy; it exists to test enforcement (CONTRACTS §5).
+schema: site-policy/1
+policy_id: "pol:project:1"
+site: null
+effective: 2026-11-16
+default: deny
+rules:
+  - key: no-per-sample
+    kind: release
+    outputs: [site_metadata, masked_contribution, per_site_summary, model_update]
+    reason: "Nothing per sample or per animal leaves a site."
+  - key: fedavg-weighting
+    kind: weighting
+    reason: "FedAvg weights by n_k unless the job declares equal or custom weights with a reason (D-017)."

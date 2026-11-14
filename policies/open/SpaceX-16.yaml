@@ -1,0 +1,25 @@
+# INVENTED FOR THE TESTBED. No real mission declared this policy; it exists to test enforcement (CONTRACTS §5).
+schema: site-policy/1
+policy_id: "pol:SpaceX-16:1"
+site: SpaceX-16
+effective: 2026-11-16
+default: deny
+rules:
+  - key: analyses
+    kind: analyses
+    tasks: [de_meta, clock_plane]
+    methods: "*"
+    reason: "Differential-expression meta-analysis and the clock diagnostic only."
+  - key: release
+    kind: release
+    outputs: [site_metadata, masked_contribution, per_site_summary]
+    reason: "Per-gene summaries may leave the site; nothing per sample."
+  - key: min-k
+    kind: min_aggregation
+    min_sites: 3
+    min_n_per_arm: 5
+    reason: "Pooled results must combine at least 3 sites; at least 5 animals per arm."
+  - key: dp
+    kind: dp
+    required: false
+    reason: "No differential-privacy requirement."
