@@ -20,6 +20,7 @@
 #   timeline_matched_time_unknown  stated to follow "the same timeline"; dates and clock time unrecorded
 #   offset_days_time_unknown  arms processed on different days by design; clock time unrecorded
 #   unknown                nothing on timing beyond duration
+#   conflicting_sources    sources disagree on dates or schedule; clock time unrecorded
 #
 # Added in WS-09 (per site): where the ground controls were housed, the lighting schedule's time
 # reference vs local time where documented, and the clock offset that would follow IF a facility
@@ -27,6 +28,15 @@
 # hours. Offsets are hypotheses to compare against the measured phase differences
 # (docs/phase3a-time-of-day.md), not claims. Local time: KSC (Florida) is GMT-4 in summer (EDT)
 # and GMT-5 in winter (EST); College Station, Texas is GMT-6 in winter (CST).
+#
+# Added in WS-18 (2026-11-13): a wider search of mission papers, OSDR payload/mission records,
+# per-sample OSDR fields, NTRS and NLSP. Still no euthanasia clock time, time of day, shift or
+# within-day order for either arm at any site. New: SpaceX-8 ground housing; ground-arm GMT
+# light-cycle fields at SpaceX-8 and SpaceX-21 (curator metadata, not methods statements);
+# RR-1 Validation dates; three date conflicts between sources. Program level: a NASA Ames
+# poster (NTRS 20190000828) states on-orbit sessions run in GMT crew work hours and ground
+# controls on a 3-4 day delay. OSDR payload records list operations time logs and ground-control
+# video as available on request (not published). Details: WS-18 notes (local planning files).
 
 light_cycle_recorded:
   OSD-47: "12 h light/dark cycle"
@@ -40,11 +50,11 @@ sites:
   SpaceX-4:
     stratum: iss
     studies: [OSD-47, OSD-48]
-    flight_time: not recorded
-    ground_time: not recorded
+    flight_time: "Experimental (OSD-47): on-orbit dissections 2014-10-12..13 (NTRS 20190001971); Validation (OSD-48): euthanized 2014-10-28 (OSD-804 per-sample euthanasia date); clock time not recorded"
+    ground_time: "+4 days on the same timeline; Validation ground controls euthanized 2014-11-01 (OSD-804 per-sample); clock time not recorded"
     status: offset_days_time_unknown
     ground_housing: "Habitats in an ISS Environmental Simulator (ISSES) chamber at Kennedy Space Center (Choi et al. 2020, Methods)"
-    lighting_reference: "flight habitats 12:12, lights on 06:00-18:00 GMT (Choi et al. 2020); pre-flight vivarium also GMT; ground-control light schedule not stated (environment matched to flight telemetry for temperature, humidity, CO2)"
+    lighting_reference: "flight habitats 12:12, lights on 06:00-18:00 GMT (Choi et al. 2020); pre-flight vivarium also GMT; ground-control light schedule not stated (environment matched to flight telemetry for temperature, humidity, CO2). WS-18: still not stated in Choi 2020, Ronca 2019 or NTRS posters; OSD-804 field gives a 12 h cycle with no time reference"
     implied_offset_hypothesis: "If the ISSES ran GMT lighting and ground dissections followed KSC working hours (October 2014, EDT = GMT-4) while on-orbit dissections followed GMT working hours, ground animals would sit ~4 h later in ZT than flight: flight ~4 h earlier."
     evidence:
       - source: "Choi et al. 2020, Sci Rep 10:2336, doi:10.1038/s41598-020-58898-4 (PMC7012842), Methods"
@@ -58,12 +68,12 @@ sites:
   SpaceX-8:
     stratum: iss
     studies: [OSD-137]
-    flight_time: not recorded
-    ground_time: not recorded
-    status: unknown
-    ground_housing: "identical hardware and matching ISS environmental conditions; facility not stated (OSDR OSD-137; Beheshti et al. 2019 Methods: not stated)"
-    lighting_reference: "lights on 07:00-19:00 GMT (OSDR OSD-137 record); which hardware the record refers to, and the ground schedule, not stated"
-    implied_offset_hypothesis: "If ground controls were at KSC on GMT lighting and dissected in local working hours (May-June 2016, EDT = GMT-4): ~4 h, flight earlier. Housing location undocumented, so this is the weakest of the four."
+    flight_time: "euthanized on orbit at ~day 42; carcasses frozen and dissected later on Earth (Colorado, 2016-09-12..16); euthanasia clock time not recorded"
+    ground_time: "same procedures on a 3-day delay in the ISSES at KSC; clock time not recorded"
+    status: offset_days_time_unknown
+    ground_housing: "ISS Environmental Simulator (ISSES) at Kennedy Space Center, 3-day delay (WS-18: OSDR RR-3 payload record; Smith et al. 2020, PLoS One 15:e0230818). Previously recorded as not stated"
+    lighting_reference: "lights on 07:00-19:00 GMT. WS-18: OSDR's per-sample light-cycle field carries this for the ground-control (rodent habitat) samples as well as flight (OSD-137, OSD-163). Curator metadata; no methods sentence found"
+    implied_offset_hypothesis: "Ground controls at KSC with GMT-tagged lighting (WS-18), so the hypothesis's housing and lighting premises are documented here. If they were dissected in local working hours (2016, EDT = GMT-4): ~4 h, flight earlier. Dissection hours remain unknown. Note: the measured shift here is the smallest (0.5 h, CI 0.3-4.1, underpowered; D-035)."
     evidence:
       - source: "Beheshti et al. 2019, Sci Rep 9:19195 (PMC6915713), Methods"
         says: "Euthanized after 42 days of flight (n = 6 flight, 6 ground); no timing or schedule relative to ground controls."
@@ -73,8 +83,8 @@ sites:
     stratum: iss
     studies: [OSD-245]
     flight_time: "on-orbit, over four days 2018-02-06..09; clock time not recorded"
-    ground_time: "same euthanasia timeline (KSC); dates and clock time not recorded"
-    status: timeline_matched_time_unknown
+    ground_time: "KSC; dates conflict between sources (see evidence); clock time not recorded"
+    status: conflicting_sources
     ground_housing: "KSC (OSDR OSD-245: 'The ISS-terminal Ground Controls (at KSC) followed the same euthanasia timeline')"
     lighting_reference: "not recorded (OSD-245 has no light-cycle field)"
     implied_offset_hypothesis: "If KSC ground controls ran GMT lighting and were euthanized in local working hours (February 2018, EST = GMT-5): ~5 h, flight earlier."
@@ -86,11 +96,15 @@ sites:
           timeline, methods, and preservation."
       - source: "Ballerini et al. 2020, Adv Ther, doi:10.1002/adtp.202000014"
         says: "Not read (no open full text found); the OSDR description is the source."
+      - source: "WS-18: OSDR RR-6 payload record"
+        says: "States ground procedures were offset from the flight schedule by 5 days."
+      - source: "WS-18: Gonzalez et al. 2024, npj Biofilms Microbiomes 10:71, Methods"
+        says: "States ISS flight mice were sacrificed at the same time as their ground controls on a common timeline. Conflicts with the payload record."
   SpaceX-16-ISST:
     stratum: iss
     studies: [OSD-379]
     flight_time: "on-orbit after 22-23 days; clock time not recorded"
-    ground_time: not recorded
+    ground_time: "WS-18: dissected in matching conditions within +/- 1 day, 22-24 d after launch (Grandke et al. 2026, Nat Commun 17:1387); location and clock time not stated"
     status: unknown
     ground_housing: "habitat ground controls in flight hardware 'in matched environmental conditions', loaded on a 3-day offset; all mice were housed before launch in the KSC Animal Care Facility (OSDR OSD-379). Location of the ground controls at euthanasia is not stated, KSC is likely but not documented"
     lighting_reference: "pre-launch KSC ACF: '12:12 light cycle matched in timing to the light cycle used for Transporters and Habitats programmed for flight' (OSD-379). The flight schedule's own reference (GMT) and the ground-control schedule during the experiment are not restated"
@@ -106,9 +120,9 @@ sites:
   SpaceX-13-LAR:
     stratum: earth
     studies: [OSD-245]
-    flight_time: "2018-01-16 at Novartis; clock time not recorded"
+    flight_time: "2018-01-16 at Novartis per OSD-245 and Gonzalez 2024; 2018-01-17 per the OSDR RR-6 payload record (conflict); clock time not recorded"
     ground_time: "2018-01-16 at Novartis; clock time not recorded"
-    status: same_day_time_unknown
+    status: conflicting_sources
     ground_housing: "LAR ground controls housed at KSC, then shipped alive to Novartis with the LAR flight group; both processed there on 2018-01-16 (OSD-245)"
     lighting_reference: "not recorded, at KSC or at Novartis"
     implied_offset_hypothesis: "Same facility, same day: no time-zone offset between arms is implied. Any difference would have to come from order within the day or from housing before processing (both unknown)."
@@ -121,8 +135,8 @@ sites:
   SpaceX-16-LAR:
     stratum: earth
     studies: [OSD-379]
-    flight_time: "after 40 days + 2 days recovery on Earth; clock time not recorded"
-    ground_time: not recorded
+    flight_time: "returned 2019-01-14 after a weather delay; tissues collected 2-4 days after splashdown (WS-18: Grandke et al. 2026; OSDR sibling studies); place and clock time not recorded"
+    ground_time: "WS-18: dissected in matching conditions within +/- 1 day (Grandke et al. 2026); date, place and clock time not stated"
     status: unknown
     ground_housing: "independent ground controls in flight hardware, matched conditions (OSD-379); location at euthanasia not stated; where LAR flight animals were housed for the 2 days after return is not stated"
     lighting_reference: "pre-launch KSC ACF flight-matched 12:12 (OSD-379); ground schedule during the experiment and post-return flight housing lighting not stated"
@@ -134,10 +148,10 @@ sites:
     stratum: earth
     studies: [OSD-463]
     flight_time: "2021-01-14 at TAMU; clock time not recorded"
-    ground_time: "2021-01-17 at TAMU (habitat ground controls, the arm used); clock time not recorded"
-    status: offset_days_time_unknown
+    ground_time: "habitat ground controls at TAMU: 2021-01-17 per the OSD-463 description; 2021-01-14 per OSD-576 per-sample euthanasia dates (same mission, all 9 ground controls); clock time not recorded"
+    status: conflicting_sources
     ground_housing: "habitat ground controls in Rodent Transporters, then flown with the flight animals to Texas A&M University; both arms euthanized at the TAMU Animal Care Facility (OSD-463)"
-    lighting_reference: "lights on 07:00 GMT (OSDR OSD-463 record), i.e. 01:00 local CST"
+    lighting_reference: "lights on 07:00 GMT (OSDR OSD-463 record), i.e. 01:00 local CST. WS-18: the per-sample field carries this for the ground-control and vivarium samples too (OSD-463, OSD-576); whether it covers the KSC phase, TAMU, or both isn't stated"
     implied_offset_hypothesis: "Both arms at one facility: no between-arm time-zone offset. If TAMU kept 07:00 GMT lighting and dissected in local working hours (January 2021, CST = GMT-6, 08:00-17:00 local = ZT7-16), both arms would sit late in the light phase or early in the dark."
     evidence:
       - source: "OSDR OSD-463 study description"
@@ -146,9 +160,10 @@ sites:
         says: "Post-flight procedures at TAMU before euthanasia; lights on 7:00 GMT; no clock time."
 
 summary: >-
-  No site records the clock time (or order) of euthanasia for either arm. One site processed
-  flight and ground on the same day (SpaceX-13 LAR), one states a matched timeline without dates
-  (SpaceX-13 ISS-T), two ran on schedules offset by days (SpaceX-4: 4 days; SpaceX-21: 3 days),
-  and three give no schedule (SpaceX-8, SpaceX-16 ISS-T, SpaceX-16 LAR). Times are missing
-  everywhere, which meets the condition for the phase diagnostic (Q-11 step 3); it is proposed,
-  not built (handoff).
+  No site records the clock time (or order) of euthanasia for either arm (WS-08; confirmed by
+  WS-18's wider search). OSDR payload records list operations time logs as available on request.
+  Schedules: SpaceX-4 (4 days) and SpaceX-8 (3 days) ran ground controls offset by days; SpaceX-16
+  ISS-T and LAR ground controls within +/- 1 day; sources conflict on dates for SpaceX-13 ISS-T
+  (same timeline vs a 5-day offset), SpaceX-13 LAR (flight 1/16 vs 1/17/18) and SpaceX-21 (ground
+  controls 1/14 vs 1/17/21). Ground-arm lights are tagged GMT at SpaceX-8 and SpaceX-21 (curator
+  fields). The phase diagnostic (Q-11 step 3) ran in WS-09; see docs/phase3a-time-of-day.md.

@@ -3,6 +3,14 @@
 _WS-08, 2026-11-13. Builds on [`phase3a-liver-meta.md`](phase3a-liver-meta.md) (WS-07). No
 biological claims are made here: gene names appear only as diagnostics for Q-11 (time of day)._
 
+**Outcome (D-029).** The recommendation in §6 was accepted: FE (BH q < 0.05) answers "these
+missions", with Cochran's Q p and I² as annotations, not filters; V3 answers "a new mission"
+(ISS 31 genes, Earth 0); V2 is the sensitivity run. Every ISS V2 and V3 hit vanishes without
+SpaceX-16, and 61% of the ISS V3 hits are liver-rhythmic genes. These results are consistent
+with a time-of-day mismatch of a few hours or a clock change; not separable (D-035, §5). Since
+WS-11 the phase 3a FLARE server computes V2 and V3 itself, and its numbers equal the ones in §4
+(Check 4, `jobs/phase3a_meta/check_eb.py`).
+
 ## 1. Why this comparison exists
 
 WS-07's pre-specified headline, REML random effects with truncated Hartung–Knapp–Sidik–Jonkman
@@ -380,6 +388,9 @@ annotation and cross-checked against GPL1261; Arntl appears as its current symbo
 - **What it can't separate:** a dissection-time mismatch from a clock shift.
 
 ## 6. Recommendation (proposed; Kaitlin decides)
+
+_Accepted as D-029 (points 1 and 2 below). Wherever the result is stated, it carries D-035's
+caveat: consistent with a time-of-day mismatch of a few hours or a clock change; not separable._
 
 By question, not by hit count:
 1. **Question A, these missions:** FE, without the flag as a hit filter.

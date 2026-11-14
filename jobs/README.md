@@ -19,17 +19,20 @@ See `fedavg_check/README.md`.
 
 ```bash
 uv run python jobs/fedavg_check/job.py                    # FLARE run (clients send n_k)
-uv run python jobs/fedavg_check/job.py --weighting equal  # optional: clients omit n_k
+uv run python jobs/fedavg_check/job.py --weighting equal  # optional: explicit weight 1 each
+uv run python jobs/fedavg_check/job.py --demo_omit_n_k    # optional demo: clients send no weight
 uv run python jobs/fedavg_check/reference.py              # comparison; exit 0 = PASS
-uv run pytest -m slow                                     # the same, as a test
+uv run pytest -m slow                                     # all three runs + comparison, as a test
 ```
 
 ### `phase3a_meta/`: federated DE meta-analysis of liver (phase 3a, WS-07)
 One FLARE client per (site, stratum) row of D-020. Each client runs pydeseq2 on its own
 samples, maps its per-gene summary to NCBI Gene and sends only that. The server
-(`MetaAnalysisController`) pools them: fixed effect, REML random effects and truncated HKSJ
-intervals. Headline: FE BH q < 0.05 with a per-gene heterogeneity flag (Q p < 0.10); RE-HKSJ is
-secondary. See [`docs/phase3a-liver-meta.md`](../docs/phase3a-liver-meta.md).
+(`MetaAnalysisController`) pools them (`meta.pool`): fixed effect, REML random effects with
+truncated HKSJ intervals, Cochran's Q and I², and the empirical-Bayes V2 and V3. Results by
+question (D-029): FE BH q < 0.05 for "these missions" (Q p and I² as annotations), V3 BH q < 0.05
+for "a new mission", V2 as a sensitivity run; RE-HKSJ kept for comparison. See
+[`docs/phase3a-liver-meta.md`](../docs/phase3a-liver-meta.md).
 
 ```bash
 # WSL/Ubuntu, after `fedkg`
@@ -44,12 +47,15 @@ uv run python jobs/phase3a_meta/job.py --stratum iss --counts rrnarm    # sensit
 uv run python jobs/phase3a_meta/report.py --stratum iss             # per-gene tables, plots
 uv run python jobs/phase3a_meta/report.py --stratum earth           # (repeat with --counts rrnarm)
 uv run python jobs/phase3a_meta/report.py --sensitivity             # cross-run comparison
+uv run python jobs/phase3a_meta/check_eb.py     # Check 4: V2/V3 = WS-08's (after compare.py)
 uv run pytest -m slow                                               # synthetic FLARE end to end
 ```
 
 ### `phase3a_compare/`: phase 3a method comparison and time-of-day checks (WS-08)
 Not FLARE jobs: every method compared runs at the server on per-site summaries, so these read
-WS-07's saved per-gene tables. See `docs/phase3a-method-comparison.md`.
+the saved per-gene tables (only their per-site columns, so schema 1 and 2 give the same result).
+V2 and V3 have since moved into the FLARE pipeline itself (D-029); `phase3a_meta/check_eb.py`
+checks that the two agree. See `docs/phase3a-method-comparison.md`.
 
 ```bash
 uv run python jobs/phase3a_compare/simulate.py     # calibrated simulation (100 reps, parallel)
@@ -64,8 +70,9 @@ Inputs (phase3a_meta): `$FEDKG_WORKDIR/census/` (WS-06), count matrices and full
 `$FEDKG_WORKDIR/data/osdr/`, and the GeneLab annotation table in
 `$FEDKG_WORKDIR/data/annotations/`. Outputs: `$FEDKG_WORKDIR/results/phase3a/<stratum>/<counts>/`
 (`flare/`, `central/`, `check3.json`), `$FEDKG_WORKDIR/results/phase3a/check2/` and
-`$FEDKG_WORKDIR/results/phase3a/sensitivity.csv`. The stable per-gene tables are
-`flare/<variant>/per_gene.csv.gz` with `per_gene.schema.json` (CONTRACTS.md §4).
+`$FEDKG_WORKDIR/results/phase3a/sensitivity.csv`, `check_eb.json`. The stable per-gene tables are
+`flare/<variant>/per_gene.csv.gz` with `per_gene.schema.json` (schema `phase3a-per-gene/2`,
+CONTRACTS.md §4).
 
 ### `phase3a_clock/`: Q-11 circadian phase diagnostic (WS-09)
 Not a FLARE job: it runs in-process. Each client's data comes only through `load_site`, and

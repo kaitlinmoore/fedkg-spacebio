@@ -142,6 +142,16 @@ Our client sends `meta[FLMetaKey.NUM_STEPS_CURRENT_ROUND] = n_k`, the same conve
 own sklearn executor. Our `fedavg()` deliberately differs on bad input: it raises instead of
 falling back to 1.0.
 
+**Enforcement (D-017, client side).** Every FedAvg client result is built by
+`federation/fedavg_client.fedavg_result`, which refuses, before the result exists, each value
+FLARE would silently turn into 1.0 (missing/None, bool, non-numeric including numeric strings,
+non-finite, ≤ 0). Equal weighting is sent as an explicit weight of 1 per client, so it is
+declared rather than an accident. `tests/test_fedavg.py` has one test per refused case. The
+server-side check that fails a round on a result without n_k needs a custom FLARE aggregator and
+is left for the masked-sum server path (WS-13). A `--demo_omit_n_k` flag bypasses the helper to
+show the fallback; the slow test asserts FLARE still falls back, so a FLARE upgrade that changes
+this is noticed.
+
 Two related FLARE details:
 1. The NumPy recipe's persistor casts the initial model to float32 and saves a single array (key
    `numpy_key`). So the check uses one flat vector θ = [w, b] and a zero initialization (exact in
@@ -186,7 +196,7 @@ error.
 |---|---|---|---|---|
 | FLARE FedAvg, clients send n_k | — | 0.4430 | 0.790 | 0.048 |
 | reference `fedavg()`, n_k | **1.1e-15** (PASS) | 0.4430 | 0.790 | 0.048 |
-| FLARE FedAvg, clients omit n_k | — | 0.4435 | 0.785 | 0.069 |
+| FLARE FedAvg, clients omit n_k (now `--demo_omit_n_k`) | — | 0.4435 | 0.785 | 0.069 |
 | reference `fedavg()`, equal weights | **6.7e-16** (PASS) | 0.4435 | 0.785 | 0.069 |
 | centralized GD, same 100-step budget | n/a | 0.4429 | 0.793 | 0.024 |
 | centralized optimum (sklearn, C=∞) | n/a | 0.4429 | 0.793 | 0 |
@@ -206,8 +216,10 @@ error.
 generalization estimate), deterministic full-batch training, a simulator on one machine, and no
 privacy mechanism. Federated learning by itself is not private.
 
-**Reproduce.** `uv run python jobs/fedavg_check/job.py` (plus `--weighting equal`), then
-`uv run python jobs/fedavg_check/reference.py`. Or run `uv run pytest -m slow`.
+**Reproduce.** `uv run python jobs/fedavg_check/job.py` (plus `--weighting equal` for explicit
+equal weights and `--demo_omit_n_k` for the fallback demo), then
+`uv run python jobs/fedavg_check/reference.py`. Or run `uv run pytest -m slow`, which runs all
+three and requires each to match its reference.
 
 ### 5.4 Phase 3a: federated DE meta-analysis (liver)
 Full write-up, checks and results: [`phase3a-liver-meta.md`](phase3a-liver-meta.md).
@@ -256,6 +268,19 @@ and structurally can't at k = 3–4: with t(2) or t(3), passing BH over ~13,000 
   after seeing the results, every place that reports the headline says so.
 - Definitions and counts live in one place (`federation/results.py`, `hit_counts`).
 
+**Superseded by D-029 (2026-11-13, after the WS-08 comparison, §5.5).** The result is reported by
+question:
+- **"These missions":** FE hit, BH q < 0.05. Cochran's Q p and I² are annotations, not filters;
+  the consistent/heterogeneous split above is kept as a description only. WS-08's simulation
+  showed that "unflagged" doesn't make an FE hit generalize to a new mission.
+- **"A new mission":** V3 (empirical-Bayes τ², §5.5) replaces truncated RE-HKSJ.
+- **Sensitivity:** V2, for misestimated SEs.
+- Every statement of the result carries D-029's fragility notes and D-035's caveat: consistent
+  with a time-of-day mismatch of a few hours or a clock change; not separable (§5.6).
+- The FLARE server computes V2 and V3 itself (`meta.pool`, per-gene schema 2). Both fit a prior
+  across all genes of a variant, so the priors are saved with every pooled table and compared
+  in Check 1.
+
 **FLARE.** A one-round custom `ModelController` that waits for every client, validates each
 summary and calls our pooling.
 - *Rejected:*
@@ -264,13 +289,13 @@ summary and calls our pooling.
   - the FedAvg recipe: a model lifecycle we don't have.
 
 **What federation does and doesn't add.** FE federated pooling equals central pooling of the
-same summaries by construction, so Check 1 is a wiring check, not a benefit. RE and the
+same summaries by construction, so Check 1 is a wiring check, not a benefit. RE, V2, V3 and the
 heterogeneity flag need per-site estimates at the server, so they are not private. FE alone
 would need only Σw·y and Σw per gene.
 
 ### 5.5 Phase 3a method comparison (WS-08)
-Full write-up: [`phase3a-method-comparison.md`](phase3a-method-comparison.md). Proposed there; the
-headline decision is pending.
+Full write-up: [`phase3a-method-comparison.md`](phase3a-method-comparison.md). Its recommendation
+was accepted as D-029 (§5.4, "Superseded by D-029").
 
 **Two questions.** A per-gene hit can mean (A) "changed in these missions" (fixed effect's
 question) or (B) "the mean across missions, the one a new mission would be drawn around, is

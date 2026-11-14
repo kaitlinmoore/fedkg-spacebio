@@ -4,10 +4,23 @@ _WS-07, run 2026-11-12/13. Methods summary in [`methodology.md`](methodology.md)
 interfaces in [`CONTRACTS.md`](../CONTRACTS.md) §3–4; sites and strata in [`SITES.md`](../SITES.md)
 (D-020) and [`census-liver.md`](census-liver.md)._
 
-**Follow-up (WS-08).** The headline method is being re-examined: an empirical-Bayes comparison
-(simulation calibrated to these data, plus the real data) and the time-of-day checks (Q-11) are
-in [`phase3a-method-comparison.md`](phase3a-method-comparison.md). The headline below stands until
-a new decision replaces it.
+**Update (WS-08, WS-09, WS-11; D-029, D-035).** The result is now reported **by question**
+(D-029), after the empirical-Bayes comparison in
+[`phase3a-method-comparison.md`](phase3a-method-comparison.md):
+- **"These missions":** fixed effect (FE), BH q < 0.05, with Cochran's Q p and I² as annotations,
+  not filters. These are the FE hits in §5. The "consistent / heterogeneous" split of §3 and §5
+  (D-026) is kept as a description only.
+- **"A new mission":** V3 (empirical-Bayes τ²), replacing truncated RE-HKSJ: 31 genes (ISS),
+  0 (Earth, no power at k = 3).
+- **Fragility, reported with every statement of the result:** every ISS V2 and V3 hit vanishes
+  without SpaceX-16; 61% of the ISS V3 hits are liver-rhythmic genes (4 remain without them; FE
+  1,926 → 1,097); SpaceX-8 disagrees with the other ISS missions and stays in.
+- **Time of day (Q-11, [`phase3a-time-of-day.md`](phase3a-time-of-day.md)):** the result is
+  *consistent with a time-of-day mismatch of a few hours or a clock change; not separable.*
+
+Since WS-11 the FLARE server emits the V3 and V2 columns itself (per-gene schema 2, §7). The
+sections below are WS-07's analysis, with the wording brought up to date; their numbers are
+unchanged.
 
 **Question.** For mouse liver, flight vs ground control, which genes change in the same direction
 across missions, analyzed separately for mice euthanized on the ISS and mice returned alive and
@@ -110,6 +123,13 @@ FE answers "what is the precision-weighted average change in these missions?". I
 answer "what would a new mission show?" (the RE question), and a large, precise site can drive
 it. Because this switch was made after seeing results, it should be read as exploratory.
 
+**Superseded by D-029 (2026-11-13, after WS-08).** FE stays the answer for "these missions", but
+the heterogeneity flag no longer selects hits: Q p and I² are annotations, and the "consistent"
+split is descriptive. WS-08's simulation showed that "unflagged" doesn't make an FE hit
+generalize to a new mission, and the flag barely changes FDR for either question. For "a new
+mission", V3 (empirical-Bayes τ²) replaces truncated RE-HKSJ. Both were chosen after seeing
+results.
+
 ## 4. Checks
 
 **Check 1: federated = central.** For each stratum and count matrix, the same pipeline was run
@@ -164,24 +184,32 @@ variant, standard counts):
 
 ## 5. Results (standard counts)
 
-**Headline**
+**Hits by question** (D-029)
 
 | | ISS (12,692 genes) | Earth (12,948 genes) |
 |---|---|---|
-| FE hits (BH q < 0.05) | **1,926** (1,167 up, 759 down) | **1,722** (925 up, 797 down) |
-| … consistent (Q p ≥ 0.10) | **971** | **870** |
-| … heterogeneous (Q p < 0.10) | 955 | 852 |
+| **These missions:** FE hits (BH q < 0.05) | **1,926** (1,167 up, 759 down) | **1,722** (925 up, 797 down) |
+| … with Q p ≥ 0.10 (descriptive) | 971 | 870 |
+| … with Q p < 0.10 (descriptive) | 955 | 852 |
+| **A new mission:** V3 hits (BH q < 0.05) | **31** | **0** (no power at k = 3) |
+| V2 hits (sensitivity for misestimated SEs) | 439 | 0 |
 | All genes with the heterogeneity flag | 2,932 (23%) | 3,986 (31%) |
-| RE-HKSJ hits (secondary) | 0 | 0 |
+| RE-HKSJ hits (pre-specified; superseded by V3) | 0 | 0 |
 | τ²: median / 75th / 95th pct | 0.0012 / 0.019 / 0.11 | 0.0071 / 0.053 / 0.32 |
 | I²: median / 75th / 95th pct | 8% / 50% / 76% | 20% / 65% / 88% |
 
-"Up" means higher in flight. About half of the FE hits carry the heterogeneity flag, and the
-genes with the smallest FE p-values mostly do (9 of the top 10 by FE p in ISS, 10 of 10 in Earth).
-The strongest FE signals tend to come from genes where the missions disagree, often driven by one
-precise site, so the consistent subset is the more conservative reading of the headline.
+"Up" means higher in flight. These results are consistent with a time-of-day mismatch of a few
+hours or a clock change; not separable (D-035). Every ISS V2 and V3 hit vanishes without
+SpaceX-16, and 61% of the ISS V3 hits are liver-rhythmic genes
+([`phase3a-method-comparison.md`](phase3a-method-comparison.md) §4–5).
 
-**Top 10 consistent FE hits by FE p** (`forest_top10_consistent.png`). Results only.
+About half of the FE hits carry the heterogeneity flag, and the genes with the smallest FE
+p-values mostly do (9 of the top 10 by FE p in ISS, 10 of 10 in Earth). The strongest FE
+signals tend to come from genes where the missions disagree, often driven by one precise site.
+That is a description of the FE hits, not a filter on them (D-029).
+
+**Top 10 FE hits with Q p ≥ 0.10, by FE p** (`forest_top10_consistent.png`; descriptive).
+Results only.
 
 | ISS | log2FC (SE) | FE q | Q p | I² | | Earth | log2FC (SE) | FE q | Q p | I² |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -222,7 +250,8 @@ primary's FE hits):
 - Dropping SpaceX-8 raises the FE hit count to 2,765 and the consistent count to 1,928. With
   SpaceX-8 in, its disagreeing estimates flag many genes as heterogeneous; without it, k = 3
   and Q has even less power. More hits is not evidence that the smaller set is better.
-- RE-HKSJ: 0 hits in every variant.
+- RE-HKSJ: 0 hits in every variant. V3 and V2 per variant are in
+  [`phase3a-method-comparison.md`](phase3a-method-comparison.md) §4.
 
 ## 6. Limitations
 
@@ -231,11 +260,14 @@ primary's FE hits):
   measure "everything that differs between missions", not variation in spaceflight's effect.
 - **Few sites.** k = 4 (ISS) and 3 (Earth). τ² and I² are very imprecise, Q has little power,
   and the RE question (what would a new mission show?) can't be answered with BH-level
-  confidence. The FE headline answers a narrower question.
-- **The headline was chosen after seeing results**, so its hit counts are exploratory.
-- **Time of day of dissection** isn't recorded as a covariate and may differ between flight and
-  ground arms within a mission and between missions. Genes with strong daily expression rhythms
-  could differ for that reason. No interpretation is made here.
+  confidence by REML-HKSJ. FE answers a narrower question ("these missions"); V3 answers the
+  new-mission question but has no power at k = 3.
+- **Both method changes (D-026, D-029) were made after seeing results**, so the hit counts are
+  exploratory.
+- **Time of day of dissection** isn't recorded for any site. WS-09's clock-plane diagnostic finds
+  clock-shaped flight–ground differences of 2.5–4.1 h at three ISS sites. The results are
+  consistent with a time-of-day mismatch of a few hours or a clock change; not separable
+  (D-035, [`phase3a-time-of-day.md`](phase3a-time-of-day.md)).
 - **FE and a dominant site.** SpaceX-16 (20 vs 20 and 15 vs 15) has the smallest median SE in
   each stratum. Its median share of the FE weight is 40% (ISS) and 39% (Earth), and it is the
   largest-weight site for 69% of ISS genes and 44% of Earth genes.
@@ -244,20 +276,26 @@ primary's FE hits):
 - **Cook's-flagged genes** at any site are excluded from the primary analysis (NaN p).
 - **Mapping drops 9–15%** of each site's tested genes, mostly genes with no Entrez ID.
 - **GeneLab's gene-length offsets** aren't reproduced (counts-only fits).
-- **No privacy claim.** RE and the heterogeneity flag need per-site estimates at the server.
+- **No privacy claim.** RE, V2, V3 and the heterogeneity flag need per-site estimates at the
+  server.
   Federated FE = central FE by construction (Check 1).
 
 ## 7. Outputs and how to rebuild
 
 Under `$FEDKG_WORKDIR/results/phase3a/<stratum>/<counts>/`:
 - `flare/sent/`, `flare/site_summaries/`: what each client sent and what the server received.
-- `flare/<variant>/meta_genes.csv.gz`: the server's pooled table.
+- `flare/<variant>/meta_genes.csv.gz` + `variant.json`: the server's pooled table, including the
+  V2/V3 columns, and the V2/V3 priors fitted across that variant's genes.
 - `flare/<variant>/per_gene.csv.gz` + `per_gene.schema.json`: the **stable per-gene table**
-  (schema `phase3a-per-gene/1`, CONTRACTS.md §4). It holds estimates, SEs, Q, I², τ², flags and
-  each site's inputs, for comparing later methods (e.g. empirical Bayes) gene by gene.
-- `flare/headline.json`, `flare/primary/{forest_top10,forest_top10_consistent,volcano,volcano_re}.png`.
-- `central/check1.json` (Check 1), `check3.json` (Check 3).
-- `results/phase3a/check2/` (Check 2) and `results/phase3a/sensitivity.csv`.
+  (schema `phase3a-per-gene/2`, CONTRACTS.md §4). It holds FE, V3, V2 and REML/HKSJ estimates,
+  SEs, Q, I², τ², hit and flag columns and each site's inputs.
+- `flare/headline.json`: which method answers which question, hit counts, priors.
+  `flare/primary/{forest_top10,forest_top10_consistent,volcano,volcano_v3}.png`: the forest plots
+  show FE and V3 next to each site.
+- `central/check1.json` (Check 1, now including the V2/V3 columns and priors), `check3.json`
+  (Check 3).
+- `results/phase3a/check2/` (Check 2), `results/phase3a/check_eb.json` (Check 4: the pipeline's
+  V2/V3 equal WS-08's) and `results/phase3a/sensitivity.csv`.
 
 ```bash
 # WSL/Ubuntu, after `fedkg`. Data: count matrices, DE tables and metadata for OSD-47, -48, -137,
@@ -268,6 +306,8 @@ for s in iss earth; do for c in standard rrnarm; do
   uv run python jobs/phase3a_meta/report.py --stratum $s --counts $c
 done; uv run python jobs/phase3a_meta/check_pooling.py --stratum $s; done
 uv run python jobs/phase3a_meta/check_genelab.py
+uv run python jobs/phase3a_meta/report.py --sensitivity
+uv run python jobs/phase3a_meta/check_eb.py      # needs WS-08's method-comparison/real/ outputs
 uv run python jobs/phase3a_meta/report.py --sensitivity
 uv run pytest -m slow     # synthetic FLARE end to end
 ```
