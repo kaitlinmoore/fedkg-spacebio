@@ -5,7 +5,16 @@ Run from WSL after ``fedkg``:
     uv run python jobs/fedavg_check/job.py                      # clients send n_k (FedAvg)
     uv run python jobs/fedavg_check/job.py --weighting equal    # clients send an explicit 1
     uv run python jobs/fedavg_check/job.py --demo_omit_n_k      # demo: clients send no weight
+    uv run python jobs/fedavg_check/job.py --demo_omit_n_k --server_check   # ...and it's refused
     uv run python jobs/fedavg_check/reference.py                # compare (see README.md)
+
+Server-side n_k check (D-036): by default the server aggregates through
+``fedkg_spacebio.federation.fedavg_server.NkCheckedAggregator``, which calls ``require_n_k`` on
+every result and fails the round on a missing or unusable n_k. The averaging itself is still
+FLARE's ``WeightedAggregationHelper``, so the comparison with ``reference.py`` still compares
+FLARE's arithmetic with ours. ``--demo_omit_n_k`` on its own runs **stock** FLARE aggregation on
+purpose: it is the canary that shows FLARE's silent fallback to 1.0. With ``--server_check`` too,
+the same clients meet our server, and the job fails.
 
 What the recipe wires up (server side):
 - a FedAvg controller that runs NUM_ROUNDS rounds. ``min_clients=3`` means every round waits for
@@ -28,6 +37,7 @@ import config  # noqa: E402
 from nvflare.app_common.np.recipes.fedavg import NumpyFedAvgRecipe  # noqa: E402
 from nvflare.recipe import SimEnv  # noqa: E402
 
+from fedkg_spacebio.federation.fedavg_server import NkCheckedAggregator  # noqa: E402
 from fedkg_spacebio.federation.synthetic import N_FEATURES, SITE_NAMES  # noqa: E402
 
 
@@ -36,13 +46,22 @@ def main():
     parser.add_argument("--weighting", choices=["samples", "equal"], default="samples")
     parser.add_argument("--demo_omit_n_k", action="store_true",
                         help="demo only: clients send no weight, so FLARE silently uses 1.0")
+    parser.add_argument("--server_check", action="store_true",
+                        help="with --demo_omit_n_k: use the n_k-checking server (job must fail)")
     args = parser.parse_args()
     if args.demo_omit_n_k and args.weighting != "samples":
         parser.error("--demo_omit_n_k sends no weight at all; don't combine it with --weighting")
+    if args.server_check and not args.demo_omit_n_k:
+        parser.error("the server check is already on by default; --server_check only changes "
+                     "--demo_omit_n_k runs")
     mode = "omit_n_k" if args.demo_omit_n_k else args.weighting
+    # Stock FLARE aggregation only for the canary; every other run has the server check.
+    checked = not args.demo_omit_n_k or args.server_check
 
     recipe = NumpyFedAvgRecipe(
-        name=config.job_name(mode),
+        name=config.job_name(mode) + ("_server_checked" if args.demo_omit_n_k and checked
+                                      else ""),
+        aggregator=NkCheckedAggregator() if checked else None,
         min_clients=len(SITE_NAMES),
         num_rounds=config.NUM_ROUNDS,
         model=[0.0] * (N_FEATURES + 1),  # theta = [w_1..w_d, b], all zeros

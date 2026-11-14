@@ -27,11 +27,9 @@ Design choices
 - **Any positive finite real number passes, not only integers.** n_k is normally an integer,
   but D-017 allows a declared custom weight, and ``--weighting equal`` sends an explicit 1.
   numpy integer and float scalars are accepted, since that's what array code produces.
-- **What this doesn't do:** check on the server side that every received result carries n_k,
-  and fail the round otherwise (CONTRACTS §6.2). That needs a custom FLARE aggregator. It
-  belongs with the custom server aggregation path of the masked-sum work (WS-13), which can
-  call ``require_n_k`` on each result. The policy-side check of the job spec is separate
-  (WS-12).
+- **The server side** (WS-13): ``federation/fedavg_server.NkCheckedAggregator`` calls
+  ``require_n_k`` on every received result and fails the round instead of letting FLARE fall
+  back to 1.0 (CONTRACTS §6.2). The policy-side check of the job spec is separate (WS-12).
 """
 
 from __future__ import annotations
@@ -71,7 +69,7 @@ def check_n_k(value) -> float:
 def require_n_k(meta: Mapping | None) -> float:
     """The FedAvg weight in a client result's ``meta``; raise ``ValueError`` if absent or unusable.
 
-    For tests now, and for a server-side check later (WS-13).
+    Used by the tests and by the server-side check (``fedavg_server.NkCheckedAggregator``).
     """
     if not meta or N_K_KEY not in meta:
         raise ValueError(f"client result has no {N_K_KEY}; FLARE would silently weight it as "

@@ -15,6 +15,7 @@ import pytest
 
 from fedkg_spacebio.federation.fedavg import fedavg
 from fedkg_spacebio.federation.fedavg_client import N_K_KEY, check_n_k, fedavg_result, require_n_k
+from fedkg_spacebio.federation.fedavg_server import NkCheckedAggregator
 from fedkg_spacebio.federation.logreg import centralized_gd, run_fedavg_inprocess
 from fedkg_spacebio.federation.synthetic import SITE_NAMES, make_all_sites, make_site_data, pool
 
@@ -270,6 +271,52 @@ def test_fedavg_check_demo_omit_n_k_is_loud_and_caught():
         require_n_k(r.meta)
 
 
+# ---------------------------------------------------------------- server-side n_k check (D-036)
+
+
+def _result(params, meta, metrics=None):
+    from nvflare.app_common.abstract.fl_model import FLModel, ParamsType
+    return FLModel(params=params, params_type=ParamsType.FULL, metrics=metrics,
+                   current_round=0, meta=meta)
+
+
+@pytest.mark.parametrize("meta", [None, {}, {"client_name": "site-1"},
+                                  *({"client_name": "site-1", N_K_KEY: b} for b in BAD_N_K)],
+                         ids=repr)
+def test_server_aggregator_refuses_what_flare_would_reweight(meta):
+    agg = NkCheckedAggregator()
+    with pytest.raises(ValueError, match="server refuses.*NUM_STEPS_CURRENT_ROUND"):
+        agg.accept_model(_result({"numpy_key": np.ones(3)}, meta))
+
+
+def test_server_aggregator_refuses_the_demo_omit_result():
+    """The canary client's result (no n_k) is exactly what our server refuses."""
+    client = _load_client()
+    data = make_site_data("site-2", seed=0)
+    with pytest.warns(UserWarning, match="demo_omit_n_k"):
+        r = client.local_round(data, np.zeros(data.X.shape[1] + 1), 0, lr=0.5, local_steps=1,
+                               demo_omit_n_k=True)
+    with pytest.raises(ValueError, match="server refuses"):
+        NkCheckedAggregator().accept_model(r)
+
+
+def test_server_aggregator_averages_like_fedavg_with_n_k_weights():
+    rng = np.random.default_rng(0)
+    thetas = [rng.normal(size=5) for _ in range(3)]
+    n_k = [40, 100, 7]
+    agg = NkCheckedAggregator()
+    for i, (t, n) in enumerate(zip(thetas, n_k, strict=True)):
+        agg.accept_model(_result({"numpy_key": t}, {"client_name": f"site-{i}", N_K_KEY: n},
+                                 {"train_loss": float(i)}))
+    out = agg.aggregate_model()
+    assert np.allclose(out.params["numpy_key"], fedavg(thetas, n_k), rtol=1e-12, atol=1e-15)
+    assert out.metrics["train_loss"] == pytest.approx((0 * 40 + 1 * 100 + 2 * 7) / 147)
+    assert out.meta["fedkg_n_k"] == {"site-0": 40, "site-1": 100, "site-2": 7}
+    # aggregate_model resets: the next round starts empty
+    agg.accept_model(_result({"numpy_key": thetas[0]}, {"client_name": "a", N_K_KEY: 1}))
+    assert np.allclose(agg.aggregate_model().params["numpy_key"], thetas[0])
+
+
 # ---------------------------------------------------------------- FLARE end to end (slow)
 
 
@@ -301,3 +348,20 @@ def test_flare_fedavg_matches_reference():
         line = next(ln for ln in proc.stdout.splitlines()
                     if ln.startswith(f"{label} vs matching reference"))
         assert "allclose=True" in line, line
+
+
+@pytest.mark.slow
+def test_flare_server_check_fails_the_round_without_n_k():
+    """The canary's clients (no n_k) against our checking server: the job must fail, naming
+    the missing key, instead of falling back to equal weighting (D-036). The stock-server canary
+    above still shows the fallback."""
+    env = os.environ.copy()
+    workdir = Path(env.get("FEDKG_WORKDIR", Path.home() / "fedkg-work"))
+    env.setdefault("NVFLARE_SIMULATOR_WORKSPACE_ROOT", str(workdir / "flare-sim"))
+    proc = subprocess.run(
+        [sys.executable, str(JOB_DIR / "job.py"), "--demo_omit_n_k", "--server_check"],
+        env=env, capture_output=True, text=True, timeout=600)
+    out = proc.stdout + proc.stderr
+    assert proc.returncode != 0
+    assert "server refuses the result" in out and "NUM_STEPS_CURRENT_ROUND" in out
+    assert "aggregation failed" in out
