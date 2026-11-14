@@ -90,3 +90,59 @@ def test_flare_pooling_equals_central(tmp_path, monkeypatch):
     for col in ("v3_est", "v3_p", "v3_q", "v2_se", "v2_p", "v2_q"):
         assert primary["columns"][col]["allclose"], col
     assert primary["eb_priors"]["pass"]
+
+
+@pytest.mark.slow
+def test_flare_spec_runs_secure_sum_and_plain(tmp_path, monkeypatch):
+    """Job-spec runs (WS-13) on the same synthetic sites:
+
+    - **secure_sum** (fe + fe_het): the server's FE and Q equal the flag-driven run's within the
+      fixed-point bound, with the same hits; the server received only uint64 masked vectors and
+      whitelisted metadata, bit-identical to what each client recorded as sent;
+    - **plain** (all five methods): reproduces the flag-driven ``primary`` pooled table.
+    """
+    from fedkg_spacebio.federation import secure_sum as ss
+
+    monkeypatch.setenv("NVFLARE_SIMULATOR_WORKSPACE_ROOT", str(tmp_path / "flare-sim"))
+    build_workdir(tmp_path)
+    job, draft = _load("job"), _load("draft_spec")
+    flare = job.run("iss", "standard", root=tmp_path, clients=CLIENTS, drop_variants=[],
+                    n_cpus=1, verify_annotation=False, build_manifests=False)
+    primary = pd.read_csv(flare / "primary" / "meta_genes.csv.gz")
+    policy = tmp_path / "policy"
+    common = dict(stratum="iss", clients=CLIENTS, root=tmp_path, policy_root=policy,
+                  access_date="2026-11-12", annotation_sha256="FAKE-sha256-0001",
+                  build_manifests=False)
+
+    spec = draft.draft(aggregation="secure_sum", methods=["fe", "fe_het"],
+                       job_id="job:FAKE-0101", **common)
+    out = job.run_spec(spec, root=tmp_path, policy_root=policy, n_cpus=1,
+                       verify_annotation=False, mask_seed=bytes(range(32)))
+    table = pd.read_csv(out / "server" / "per_gene.csv.gz")
+    assert np.array_equal(table["ncbi_gene"], primary["ncbi_gene"])
+    b = ss.error_bound(primary["fe_est"], 1 / primary["fe_se"] ** 2, primary["k"], 40)
+    assert np.all(np.abs(table["fe_est"] - primary["fe_est"]) <= b["est"] + 1e-14)
+    assert np.all(np.abs(table["q"] - primary["q"]) <= b["q"] + 1e-13)
+    assert np.array_equal(table["fe_hit"], primary["fe_q"] < 0.05)
+    assert not any(c.startswith(("log2fc__", "se__")) for c in table.columns)
+    schema = json.loads((out / "server" / "per_gene.schema.json").read_text())
+    assert schema["methods_run"] == ["fe", "fe_het"]
+    assert schema["aggregation"]["strategy"] == "secure_sum"
+    for c in CLIENTS:
+        sent = np.load(out / "sites" / c / "sent" / f"{c}.npz")
+        got = np.load(out / "server" / "received" / f"{c}.npz")
+        assert sorted(got.files) == ["masked_w", "masked_wy", "masked_wy2"]
+        for k in got.files:
+            assert got[k].dtype == np.uint64 and np.array_equal(got[k], sent[k])
+        m = json.loads((out / "server" / "received" / f"{c}.meta.json").read_text())
+        assert set(m) == set(ss.CONTRIBUTION_META_FIELDS)
+    assert not list((out / "server").rglob("summary*"))  # no plain summary on the server side
+
+    spec = draft.draft(aggregation="plain", methods=["fe", "fe_het", "reml_hksj", "v2", "v3"],
+                       job_id="job:FAKE-0102", **common)
+    out = job.run_spec(spec, root=tmp_path, policy_root=policy, n_cpus=1,
+                       verify_annotation=False)
+    table = pd.read_csv(out / "server" / "per_gene.csv.gz")
+    for col in ("k", "fe_est", "fe_q", "q_p", "re_est", "re_q", "v2_q", "v3_est", "v3_q"):
+        assert np.allclose(table[col], primary[col], rtol=1e-12, atol=1e-14,
+                           equal_nan=True), col

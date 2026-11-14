@@ -45,6 +45,18 @@ Written as gzip CSV with ``%.17g`` floats, so values round-trip exactly, plus a 
 file with column definitions. Schema 2 added the V2 and V3 columns (``meta.EB_COLUMNS``) and
 their hit columns; the fitted priors are in the schema file's ``provenance.eb_priors``. Every
 schema-1 column is unchanged in meaning and value.
+
+Job-spec tables (WS-13)
+-----------------------
+A run made from a job spec (CONTRACTS §6) releases only what its methods ask for, so its table
+(``spec_per_gene_table``) holds a **subset** of the schema-2 columns: ``ncbi_gene``, ``symbol``,
+``k``, the columns of each method in ``methods_run`` (``METHOD_COLUMNS``), and per site
+``n_flight``/``n_ground``/``included``, plus ``log2fc``/``se``/``base_mean`` only when the sites
+sent per-site summaries. Every column present keeps its schema-2 meaning, so the schema version
+stays ``phase3a-per-gene/2``. Absent methods are **absent, not NaN-filled**: the schema file
+records ``methods_run`` and ``aggregation`` (``plain`` or ``secure_sum`` with its parameters), and
+a reader treats a method missing from ``methods_run`` as "not run". Under ``secure_sum`` there
+are no per-site estimate columns at all; the server never had them.
 """
 
 from __future__ import annotations
@@ -190,8 +202,92 @@ def per_gene_table(pooled: pd.DataFrame, frames: Mapping[str, pd.DataFrame], fla
     return out
 
 
-def schema(table: pd.DataFrame, provenance: dict) -> dict:
-    """JSON schema for a per-gene table: version, columns with dtypes and meanings, provenance."""
+# Which schema-2 columns each method (CONTRACTS §5.2 keys) produces. V2 keeps the FE weights, so
+# its estimate is ``fe_est``. ``fe_hit_consistent``/``_heterogeneous`` need both fe and fe_het.
+METHOD_COLUMNS: dict[str, list[str]] = {
+    "fe": ["fe_est", "fe_se", "fe_p", "fe_q", "fe_hit"],
+    "fe_het": ["i2", "q", "q_p", "het_flag"],
+    "reml_hksj": ["re_est", "hksj_se", "hksj_ci_low", "hksj_ci_high", "re_p", "re_q",
+                  "hksj_multiplier", "re_p_untruncated", "tau2", "reml_converged", "re_hit"],
+    "v2": ["fe_est", *meta.V2_COLUMNS, "v2_hit"],
+    "v3": [*meta.V3_COLUMNS, "v3_hit"],
+}
+_ORDER = ["ncbi_gene", "symbol", "k", *meta.POOL_COLUMNS[1:], *FLAG_COLUMNS]
+
+
+def columns_for(methods) -> list[str]:
+    """The pooled and flag columns a set of methods supports, in schema-2 order."""
+    unknown = sorted(set(methods) - set(METHOD_COLUMNS))
+    if unknown:
+        raise ValueError(f"no per-gene columns defined for methods {unknown}")
+    want = {"k"}.union(*(METHOD_COLUMNS[m] for m in methods))
+    if {"fe", "fe_het"} <= set(methods):
+        want |= {"fe_hit_consistent", "fe_hit_heterogeneous"}
+    return [c for c in _ORDER if c in want]
+
+
+def _flags(t: pd.DataFrame) -> pd.DataFrame:
+    """``classify``, for whichever inputs are present (a spec table may lack some methods)."""
+    t = t.copy()
+    for flag, src, thr in (("fe_hit", "fe_q", FDR_Q), ("v3_hit", "v3_q", FDR_Q),
+                           ("v2_hit", "v2_q", FDR_Q), ("re_hit", "re_q", FDR_Q),
+                           ("het_flag", "q_p", HET_Q_P)):
+        if src in t:
+            t[flag] = (t[src] < thr).to_numpy()
+    if "fe_hit" in t and "het_flag" in t:
+        t["fe_hit_consistent"] = t["fe_hit"] & ~t["het_flag"]
+        t["fe_hit_heterogeneous"] = t["fe_hit"] & t["het_flag"]
+    return t
+
+
+def spec_per_gene_table(pooled: pd.DataFrame, methods, rows: pd.DataFrame,
+                        site_n: Mapping[str, tuple[int, int]],
+                        frames: Mapping[str, pd.DataFrame] | None = None,
+                        symbols: pd.Series | None = None) -> pd.DataFrame:
+    """The per-gene table of a job-spec run: only the columns ``methods`` support.
+
+    ``pooled`` has ``ncbi_gene``, ``k`` and the pooled columns, in the order of ``rows`` (the gene
+    plan after exclusions; one bool column per client). ``included__<client>`` comes from the
+    plan and must reproduce ``k``. ``frames`` (per-site summaries, index ``ncbi_gene``) adds the
+    per-site estimate columns; it is left out under ``secure_sum``.
+    """
+    if not np.array_equal(pooled["ncbi_gene"].to_numpy(), rows.index.to_numpy()):
+        raise ValueError("pooled genes aren't the plan's rows, in order")
+    t = _flags(pooled)
+    cols = [c for c in columns_for(methods) if c != "symbol"]
+    missing = [c for c in cols if c not in t]
+    if missing:
+        raise ValueError(f"pooled table lacks columns its methods need: {missing}")
+    genes = t["ncbi_gene"].to_numpy()
+    out = pd.DataFrame({"ncbi_gene": genes})
+    out["symbol"] = (pd.Series(genes).map(symbols).to_numpy() if symbols is not None
+                     else np.full(len(genes), None))
+    for c in cols:
+        if c != "ncbi_gene":
+            out[c] = t[c].to_numpy()
+    clients = sorted(rows.columns)
+    for c in clients:
+        if frames is not None:
+            f = frames[c].reindex(genes)
+            out[f"log2fc__{c}"] = f["log2fc"].to_numpy(dtype=np.float64)
+            out[f"se__{c}"] = f["se"].to_numpy(dtype=np.float64)
+            out[f"base_mean__{c}"] = f["base_mean"].to_numpy(dtype=np.float64)
+        out[f"n_flight__{c}"] = int(site_n[c][0])
+        out[f"n_ground__{c}"] = int(site_n[c][1])
+        out[f"included__{c}"] = rows[c].to_numpy(dtype=bool)
+    k_check = out[[f"included__{c}" for c in clients]].sum(axis=1).to_numpy()
+    if not np.array_equal(k_check, out["k"].to_numpy()):
+        raise ValueError("plan inclusion doesn't reproduce k; table and plan disagree")
+    return out
+
+
+def schema(table: pd.DataFrame, provenance: dict, methods_run: list[str] | None = None,
+           aggregation: dict | None = None) -> dict:
+    """JSON schema for a per-gene table: version, columns with dtypes and meanings, provenance.
+
+    Job-spec tables pass ``methods_run`` and ``aggregation``; a reader treats any method not in
+    ``methods_run`` as not run (its columns are absent, not NaN). Flag-driven tables leave both
+    out, so their schema files are unchanged."""
     def doc(col):
         if "__" in col:
             return COLUMN_DOC[col.split("__")[0] + "__<client>"]
@@ -204,5 +300,7 @@ def schema(table: pd.DataFrame, provenance: dict) -> dict:
         "thresholds": {"fdr_q": FDR_Q, "het_q_p": HET_Q_P},
         "columns": [{"name": c, "dtype": str(table[c].dtype), "description": doc(c)}
                     for c in table.columns],
+        **({"methods_run": list(methods_run)} if methods_run is not None else {}),
+        **({"aggregation": aggregation} if aggregation is not None else {}),
         "provenance": provenance,
     }

@@ -72,5 +72,13 @@ def results_dir(stratum: str, counts: str, path: str, root: Path | None = None,
                                         counts, path)
 
 
+def spec_results_dir(stratum: str, counts: str, slug: str, root: Path | None = None,
+                     profile: str = "open") -> Path:
+    """A job-spec run's folder: ``…/<stratum>/<counts>/jobs/<job slug>/`` (``server/`` and
+    ``sites/`` inside). Separate from ``flare/`` and ``central/``, so a spec run never overwrites
+    the flag-driven results."""
+    return results_dir(stratum, counts, "jobs", root, profile) / slug
+
+
 def job_name(stratum: str, counts: str) -> str:
     return f"phase3a_meta_{stratum}_{counts}"
