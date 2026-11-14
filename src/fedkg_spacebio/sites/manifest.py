@@ -37,6 +37,14 @@ declares, a profile change also changes the manifest's SHA-256, which job specs 
 (§6 ``provenance.manifest_sha256``). The policies themselves are invented for the testbed
 (§5.5); the manifest only points at one. Evaluating it is the policy layer's job, not this one.
 
+Tissue (CONTRACTS §3 ``tissue_uberon``)
+---------------------------------------
+Each manifest carries its client's tissue term, read from the census rows it uses (the KG's
+``Assay.material_id_1``), never assumed. Liver clients differ: SpaceX-16 and SpaceX-21 are
+"left lateral lobe of liver" (``UBERON:0006727``), the others "liver" (``UBERON:0002107``). The
+agent's ``sites.list`` reports it and accepts any of the liver terms for a ``tissue: liver``
+filter. A client whose rows name two different terms is refused: one client, one tissue.
+
 Designs (D-022): SpaceX-4 uses ``~ study + condition`` (two RR-1 cohorts). SpaceX-16 uses
 ``~ age + condition`` because both age groups appear in both arms in both strata. All others use
 ``~ condition``. Each client uses only its own flight and ground samples, with no all-group fits
@@ -166,8 +174,10 @@ def build_manifest(spec: ClientSpec, census: pd.DataFrame, samples: pd.DataFrame
         raise ValueError(f"unknown counts variant {counts_variant!r}")
     sources: dict[str, dict] = {}
     rows_used = []
+    tissues: set[str] = set()
     for rs in spec.rows:
         row = find_row(census, spec.site, rs)
+        tissues.add(_tissue_term(row, spec.client))
         osd = rs.osd_id
         counts_file = row[COUNTS_VARIANTS[counts_variant]]
         st_path = data_root / osd / sample_table_name(row["counts_file"])
@@ -200,17 +210,29 @@ def build_manifest(spec: ClientSpec, census: pd.DataFrame, samples: pd.DataFrame
                           "euthanasia_location_flight_source":
                               row["euthanasia_location_flight_source"],
                           "de_file": row["de_file"]})
+    if len(tissues) != 1:
+        raise ValueError(f"{spec.client}: census rows name {len(tissues)} tissue terms "
+                         f"{sorted(tissues)}; a client has one tissue")
     all_samples = [s for src in sources.values() for s in src["samples"]]
     n_flight = sum(s["arm"] == "flight" for s in all_samples)
     n_ground = sum(s["arm"] == "ground" for s in all_samples)
     return {
         "client": spec.client, "site": spec.site, "stratum": spec.stratum,
-        "policy_id": policy_id, "design": spec.design,
+        "policy_id": policy_id, "tissue_uberon": tissues.pop(), "design": spec.design,
         "contrast": ["condition", "flight", "ground"],
         "counts_variant": counts_variant, "studies": sorted(sources),
         "sources": list(sources.values()), "census_rows": rows_used,
         "n_flight": n_flight, "n_ground": n_ground,
     }
+
+
+def _tissue_term(row: pd.Series, client: str) -> str:
+    """The census row's tissue term (``UBERON:<7 digits>``), checked; never defaulted."""
+    term = row.get("tissue_uberon")
+    if not isinstance(term, str) or not re.fullmatch(r"UBERON:\d{7}", term):
+        raise ValueError(f"{client}: census row {row.get('osd_id')} has no valid tissue_uberon "
+                         f"({term!r})")
+    return term
 
 
 def sample_table_name(counts_file: str) -> str:

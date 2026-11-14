@@ -21,7 +21,8 @@ from fedkg_spacebio.sites.manifest import (
 COUNTS = "GLDS-FAKE-1_rna_seq_RSEM_Unnormalized_Counts_GLbulkRNAseq.csv"
 
 
-def census_row(flight_factors, flight_animals, control_animals, location_aware=True):
+def census_row(flight_factors, flight_animals, control_animals, location_aware=True,
+               tissue="UBERON:0002107"):
     return {"osd_id": "OSD-FAKE-1", "site": "FAKE-MISSION-1", "control_type": "Ground Control",
             "location_aware_match": location_aware, "strict_match": location_aware,
             "factors_flight": json.dumps(["Space Flight", *flight_factors]),
@@ -31,7 +32,8 @@ def census_row(flight_factors, flight_animals, control_animals, location_aware=T
             "comparison_id": "OSD-FAKE-1-00000000000000000000000000000000",
             "genelab_contrast": "(Space Flight)v(Ground Control)",
             "euthanasia_location_flight": "ISS", "euthanasia_location_flight_source": "fake",
-            "de_file": "fake_de.csv", "counts_file": COUNTS, "counts_file_rrnarm": COUNTS}
+            "de_file": "fake_de.csv", "counts_file": COUNTS, "counts_file_rrnarm": COUNTS,
+            "tissue_uberon": tissue}
 
 
 @pytest.fixture
@@ -142,3 +144,34 @@ def test_write_manifests_applies_policy_ids_per_site(setup, tmp_path):
     with pytest.raises(ValueError, match="no client"):
         write_manifests(out_dir=tmp_path / "m", workdir=work, clients=clients,
                         policy_ids={"FAKE-MISSION-9": "pol:FAKE-MISSION-9:1"})
+
+
+# ---------------------------------------------------------------- tissue_uberon (CONTRACTS §3)
+
+
+def test_manifest_carries_the_census_tissue_term(setup):
+    census, samples, root = setup
+    m = build_manifest(spec("A", ["Carcass"]), census, samples, root)
+    assert m["tissue_uberon"] == "UBERON:0002107"
+    census.loc[0, "tissue_uberon"] = "UBERON:0006727"   # left lateral lobe of liver
+    assert build_manifest(spec("A", ["Carcass"]), census, samples, root)["tissue_uberon"] == \
+        "UBERON:0006727"
+
+
+@pytest.mark.parametrize("bad", [None, float("nan"), "liver", "UBERON:12"])
+def test_missing_or_malformed_tissue_refused(setup, bad):
+    census, samples, root = setup
+    census["tissue_uberon"] = census["tissue_uberon"].astype(object)
+    census.loc[0, "tissue_uberon"] = bad
+    with pytest.raises(ValueError, match="tissue_uberon"):
+        build_manifest(spec("A", ["Carcass"]), census, samples, root)
+
+
+def test_client_with_two_tissue_terms_refused(setup):
+    census, samples, root = setup
+    census.loc[1, "tissue_uberon"] = "UBERON:0006727"
+    two_rows = ClientSpec("A", "FAKE-MISSION-1", "iss", "~ condition",
+                          (RowSpec("OSD-FAKE-1", ("Carcass",)),
+                           RowSpec("OSD-FAKE-1", ("Upon euthanasia",))))
+    with pytest.raises(ValueError, match="one tissue"):
+        build_manifest(two_rows, census, samples, root)
