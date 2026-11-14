@@ -49,7 +49,9 @@ OUT_COLUMNS = ["est", "se", "ci_low", "ci_high", "p", "q", "hit"]
 
 
 def matrices_from_table(table: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """(Y, V, clients) from a WS-07 per-gene table (schema ``phase3a-per-gene/1``).
+    """(Y, V, clients) from a per-gene table (schema ``phase3a-per-gene/1`` or ``/2``).
+
+    Only the per-site columns are read, so both schema versions give the same matrices.
 
     Y = log2FC and V = SE², with NaN wherever ``included__<client>`` is False, so exactly the
     cells that entered WS-07's pooling enter here.

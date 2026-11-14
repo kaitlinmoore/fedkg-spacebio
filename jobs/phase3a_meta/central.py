@@ -13,7 +13,9 @@ the same ``stratum.pool_variants``, and compares at three levels:
    shows whether pydeseq2 is deterministic across runs. Any difference is reported, not
    assumed away.
 3. **pooled**: every variant's pooled table, central vs FLARE, with
-   ``allclose(rtol=config.RTOL, atol=config.ATOL)``.
+   ``allclose(rtol=config.RTOL, atol=config.ATOL)``. That includes the V2/V3 columns, and the
+   priors V2 and V3 fitted across genes (``variant.json`` → ``eb_priors``) must agree too: a
+   different prior would change every gene's V2/V3 result at once.
 
 By construction this tests transport and wiring, not a benefit of federation. Fixed-effect
 federated pooling of these summaries is mathematically the same as central pooling of them.
@@ -94,7 +96,36 @@ def compare_pooled(central: dict[str, pd.DataFrame], flare_dir: Path) -> dict:
                               and v.get("nan_pattern_equal", True) for v in cols.values())
         else:
             rec["pass"] = False
+        rec["eb_priors"] = compare_priors(c.attrs.get("eb_priors"),
+                                          json.loads((flare_dir / name / "variant.json")
+                                                     .read_text()).get("eb_priors"))
+        rec["pass"] = rec["pass"] and rec["eb_priors"]["pass"]
         out[name] = rec
+    return out
+
+
+def compare_priors(central: dict | None, flare: dict | None) -> dict:
+    """The V2/V3 priors of one variant, central vs FLARE (read back from JSON on both sides,
+    so both have been through the same serialization)."""
+    if central is None or flare is None:
+        return {"pass": False, "detail": "eb_priors missing"}
+    central = json.loads(json.dumps(central))
+    out = {"identical": central == flare}
+    nums = {}
+    for method, keys in (("v2", ("d0", "s02")), ("v3", ("grid", "pi", "em_loglik"))):
+        for key in keys:
+            a, b = central.get(method, {}).get(key), flare.get(method, {}).get(key)
+            if isinstance(a, (int, float, list)) and isinstance(b, type(a)):
+                nums[f"{method}.{key}"] = float(np.max(np.abs(np.subtract(a, b)), initial=0.0))
+    out["max_abs_diff"] = nums
+
+    def rest(d):  # everything except the float values compared above (fitted, iterations, …)
+        return {m: {k: x for k, x in v.items() if f"{m}.{k}" not in nums}
+                for m, v in d.items() if isinstance(v, dict)}
+    # Same code on the same float64 inputs: expected identical. The tolerance is there only so
+    # a last-bit difference would be reported as a number rather than as a bare failure.
+    out["pass"] = out["identical"] or (rest(central) == rest(flare)
+                                       and all(d <= config.ATOL for d in nums.values()))
     return out
 
 

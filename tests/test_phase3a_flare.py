@@ -59,7 +59,8 @@ def build_workdir(root: Path) -> None:
         fname = f"GLDS-FAKE-{j + 1}_rna_seq_RSEM_Unnormalized_Counts_GLbulkRNAseq.csv"
         pd.DataFrame(cols, index=pd.Index(genes, name="")).to_csv(d / fname)
         manifest = {"client": client, "site": f"FAKE-MISSION-{j + 1}", "stratum": "iss",
-                    "design": "~ condition", "contrast": ["condition", "flight", "ground"],
+                    "policy_id": f"pol:FAKE-MISSION-{j + 1}:1", "design": "~ condition",
+                    "contrast": ["condition", "flight", "ground"],
                     "counts_variant": "standard", "studies": [osd],
                     "sources": [{"osd_id": osd, "counts_file": f"{osd}/{fname}",
                                  "samples": samples}],
@@ -84,3 +85,8 @@ def test_flare_pooling_equals_central(tmp_path, monkeypatch):
     primary = report["pooled"]["primary"]
     assert primary["n_genes_flare"] > 100
     assert "primary_without_SITE-C" in report["pooled"]
+    # The FLARE server emits the V2/V3 columns (schema 2), and its fitted priors equal the
+    # central run's.
+    for col in ("v3_est", "v3_p", "v3_q", "v2_se", "v2_p", "v2_q"):
+        assert primary["columns"][col]["allclose"], col
+    assert primary["eb_priors"]["pass"]

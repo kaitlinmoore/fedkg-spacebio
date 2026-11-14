@@ -4,23 +4,33 @@ Pure functions with no FLARE or plotting import. ``jobs/phase3a_meta/report.py``
 every (stratum, counts, variant), so the headline, the sensitivity table and the write-up all
 take their counts from one function (``hit_counts``) and can't disagree.
 
-Headline (D-026: methods change of 2026-11-13, made after seeing results; Kaitlin)
-----------------------------------------------------------------------------------
-The pre-specified headline was random effects (REML τ²) with truncated HKSJ intervals. With
-k = 3–4 sites it found no gene at BH q < 0.05 in any variant, and it can't: a t distribution
-with 2–3 df needs |t| ≥ 8–16 even if 1,000 genes passed together, and the largest observed |t|
-was 6.7. The headline is now:
+Which result answers which question (D-029, 2026-11-13; amends D-026)
+---------------------------------------------------------------------
+Phase 3a asks two different questions, and each has its own method:
 
-- **FE hit:** fixed-effect (inverse-variance) BH q < 0.05 within the stratum and variant.
-- **Heterogeneity flag:** Cochran's Q p < 0.10. I² is reported next to it. A threshold of 0.10
-  rather than 0.05 is the usual convention, because Q has little power with few sites.
-- **Consistent FE hit** = FE hit without the flag. Read it as "a change that is consistent
-  across *these* missions". FE estimates the precision-weighted average of the sites in the
-  analysis. It is not an estimate of what a new mission would show; that is the random-effects
-  question, which stays as a secondary result (``re_hit``, almost always 0 here).
+- **"These missions" (estimand A): the FE hit.** Fixed-effect (inverse-variance) BH q < 0.05
+  within the stratum and variant (``fe_hit``). FE estimates the precision-weighted average of
+  the missions in this analysis, so it answers "is there a change across *these* missions?".
+  It is not an estimate of what a new mission would show. Cochran's Q p and I² are reported
+  next to it as **annotations, not filters**: a gene with a high Q is still an FE hit.
+- **"A new mission" (estimand B): the V3 hit.** Empirical-Bayes τ² (``v3_hit``, D-028). It
+  replaced REML + truncated HKSJ in this role, because in WS-08's calibrated simulation it was
+  the only method that held FDR near 0.05 for B in every setting. At k = 3 (Earth) it has no
+  power, and that is reported as a result, not a failure.
+- **Sensitivity for A: the V2 hit** (``v2_hit``): FE with a moderated multiplicative
+  heterogeneity factor. It protects A when the site SEs are misestimated, at a power cost.
 
-Because the switch was made after seeing results, it is reported as such wherever the headline
-is reported.
+Descriptive columns, kept for comparison with earlier write-ups:
+- ``het_flag`` (Q p < 0.10) and the split of FE hits by it, ``fe_hit_consistent`` /
+  ``fe_hit_heterogeneous``. The split was D-026's headline. Under D-029 it describes FE hits;
+  it doesn't select them. WS-08's simulation showed that "unflagged" doesn't make an FE hit
+  generalize to a new mission.
+- ``re_hit``: REML + truncated HKSJ (the pre-specified D-025 headline). With 3–4 sites it can't
+  reach BH q < 0.05 (a t with 2–3 df needs |t| ≥ 8–16), and it found no gene.
+
+Both method changes (D-026, then D-029) were made after seeing results. Wherever the phase 3a
+result is reported, it says so, along with D-029's fragility notes and D-035's caveat:
+"consistent with a time-of-day mismatch of a few hours or a clock change; not separable."
 
 The per-gene table (schema ``SCHEMA_VERSION``)
 -----------------------------------------------
@@ -32,8 +42,9 @@ repeated so the table is self-contained. ``included`` is False when
 the site didn't send the gene or didn't flag it under this variant's inclusion rule; its
 log2fc/se are then still shown if the site sent them, but they didn't enter the pooling.
 Written as gzip CSV with ``%.17g`` floats, so values round-trip exactly, plus a JSON schema
-file with column definitions. A later method (e.g. empirical Bayes) can be compared with these
-outputs gene by gene.
+file with column definitions. Schema 2 added the V2 and V3 columns (``meta.EB_COLUMNS``) and
+their hit columns; the fitted priors are in the schema file's ``provenance.eb_priors``. Every
+schema-1 column is unchanged in meaning and value.
 """
 
 from __future__ import annotations
@@ -45,11 +56,12 @@ import pandas as pd
 
 from fedkg_spacebio.federation import meta
 
-FDR_Q = 0.05        # BH threshold for hit calls (FE headline, RE secondary)
+FDR_Q = 0.05        # BH threshold for every hit call (FE, V3, V2, RE)
 HET_Q_P = 0.10      # Cochran's Q p-value below which a gene is flagged as heterogeneous
-SCHEMA_VERSION = "phase3a-per-gene/1"
+SCHEMA_VERSION = "phase3a-per-gene/2"
 
-FLAG_COLUMNS = ["fe_hit", "het_flag", "fe_hit_consistent", "fe_hit_heterogeneous", "re_hit"]
+FLAG_COLUMNS = ["fe_hit", "v3_hit", "v2_hit", "het_flag", "fe_hit_consistent",
+                "fe_hit_heterogeneous", "re_hit"]
 
 COLUMN_DOC = {
     "ncbi_gene": "NCBI Gene ID (int). The join key; never join on symbol.",
@@ -72,11 +84,31 @@ COLUMN_DOC = {
     "i2": "Q-based I^2 = max(0, (Q - df)/Q).",
     "q": "Cochran's Q (fixed-effect weights).",
     "q_p": "Cochran's Q chi-square p-value, df = k-1.",
-    "fe_hit": f"fe_q < {FDR_Q}. The headline hit call.",
-    "het_flag": f"q_p < {HET_Q_P}: heterogeneity across sites flagged.",
-    "fe_hit_consistent": "fe_hit and not het_flag: consistent change across these missions.",
-    "fe_hit_heterogeneous": "fe_hit and het_flag.",
-    "re_hit": f"re_q < {FDR_Q} (secondary; truncated HKSJ).",
+    "v2_se": "V2 SE: sqrt(phi_moderated / sum w), w = 1/se_i^2. V2's estimate is fe_est.",
+    "v2_ci_low": "V2 lower 95% CI, t quantile on v2_df.",
+    "v2_ci_high": "V2 upper 95% CI.",
+    "v2_df": "V2 t degrees of freedom: (k-1) + d0 (inf when d0 is inf: normal).",
+    "v2_p": "V2 two-sided t p-value.",
+    "v2_q": "BH q-value of v2_p within this stratum and variant.",
+    "v2_phi": "Raw multiplicative heterogeneity phi = Q/(k-1), FE weights.",
+    "v2_phi_moderated": "phi moderated toward the prior s0^2 with d0 prior df (Smyth 2004).",
+    "v3_est": "V3 posterior mean of the cross-mission mean effect (EB tau2 grid prior).",
+    "v3_sd": "V3 posterior SD of that mean.",
+    "v3_ci_low": "V3 lower 95% equal-tailed credible limit.",
+    "v3_ci_high": "V3 upper 95% equal-tailed credible limit.",
+    "v3_p": "V3 p_EB = 2 min(P(mu > 0 | y), P(mu < 0 | y)).",
+    "v3_q": "BH q-value of v3_p within this stratum and variant.",
+    "v3_tau2_post_mean": "V3 posterior mean of this gene's between-mission variance tau2.",
+    "v3_p_tau2_zero": "V3 posterior probability that tau2 = 0 (grid point mass at 0).",
+    "fe_hit": f"fe_q < {FDR_Q}. Answers 'these missions' (D-029). Q p and I^2 annotate it; "
+              "they don't filter it.",
+    "v3_hit": f"v3_q < {FDR_Q}. Answers 'a new mission' (D-029).",
+    "v2_hit": f"v2_q < {FDR_Q}. Sensitivity for 'these missions' (misestimated SEs; D-029).",
+    "het_flag": f"q_p < {HET_Q_P}: heterogeneity across sites flagged. Annotation only.",
+    "fe_hit_consistent": "fe_hit and not het_flag. Descriptive (D-026's split); not a filter.",
+    "fe_hit_heterogeneous": "fe_hit and het_flag. Descriptive (D-026's split).",
+    "re_hit": f"re_q < {FDR_Q} (REML + truncated HKSJ; kept for comparison, superseded by "
+              "v3_hit for 'a new mission').",
     "log2fc__<client>": "That site's pydeseq2 log2 fold change (unshrunk MLE).",
     "se__<client>": "That site's pydeseq2 lfcSE.",
     "base_mean__<client>": "That site's mean of DESeq2-normalized counts over its samples.",
@@ -95,6 +127,8 @@ def classify(pooled: pd.DataFrame) -> pd.DataFrame:
     fe_hit = (t["fe_q"] < FDR_Q).to_numpy()
     het = (t["q_p"] < HET_Q_P).to_numpy()
     t["fe_hit"] = fe_hit
+    t["v3_hit"] = (t["v3_q"] < FDR_Q).to_numpy()
+    t["v2_hit"] = (t["v2_q"] < FDR_Q).to_numpy()
     t["het_flag"] = het
     t["fe_hit_consistent"] = fe_hit & ~het
     t["fe_hit_heterogeneous"] = fe_hit & het
@@ -110,6 +144,10 @@ def hit_counts(t: pd.DataFrame) -> dict:
         "fe_hit": int(t["fe_hit"].sum()),
         "fe_hit_up": int((t["fe_hit"] & up).sum()),
         "fe_hit_down": int((t["fe_hit"] & down).sum()),
+        "v3_hit": int(t["v3_hit"].sum()),
+        "v3_hit_up": int((t["v3_hit"] & (t["v3_est"] > 0)).sum()),
+        "v3_hit_down": int((t["v3_hit"] & (t["v3_est"] < 0)).sum()),
+        "v2_hit": int(t["v2_hit"].sum()),
         "fe_hit_consistent": int(t["fe_hit_consistent"].sum()),
         "fe_hit_heterogeneous": int(t["fe_hit_heterogeneous"].sum()),
         "het_flag": int(t["het_flag"].sum()),

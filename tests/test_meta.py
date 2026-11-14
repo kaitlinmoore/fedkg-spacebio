@@ -379,9 +379,13 @@ def test_pool_vectorized_equals_per_gene_loop():
     y, v, _ = simulate(rng, 40, 5, tau2=0.15, v_low=0.02, v_high=0.4)
     y[rng.uniform(size=y.shape) < 0.2] = np.nan  # some genes untested at some sites
     v[np.isnan(y)] = np.nan
-    whole = meta.pool(y, v)
+    # eb=False: FE, REML and HKSJ are computed gene by gene, so pooling 40 genes at once must
+    # equal 40 one-gene calls. V2 and V3 fit a prior across genes, so for them a one-gene call
+    # is a different analysis by design; their own tests are below.
+    whole = meta.pool(y, v, eb=False)
+    assert list(whole.columns) == meta.CLASSIC_COLUMNS
     for g in range(len(y)):
-        one = meta.pool(y[g], v[g])
+        one = meta.pool(y[g], v[g], eb=False)
         for col in ("k", "fe_est", "fe_se", "re_est", "hksj_se", "hksj_ci_low", "re_p", "tau2",
                     "i2", "q"):
             a, b = whole[col].iloc[g], one[col].iloc[0]
@@ -401,3 +405,53 @@ def test_pool_columns_min_k_and_bh_scope():
     assert not out["reml_converged"].iloc[0]
     # BH runs over the 9 usable genes only.
     np.testing.assert_allclose(out["re_q"].iloc[1:], meta.bh_qvalues(out["re_p"].iloc[1:]))
+
+
+# run_methods (WS-08) keeps k < min_k genes as all-NaN rows, and eb_tau2's restricted
+# likelihood then takes log(0) for them before marking them NaN. Harmless; pool passes only the
+# usable rows, so it never hits this.
+@pytest.mark.filterwarnings("ignore:divide by zero encountered in log:RuntimeWarning")
+def test_pool_eb_columns_equal_the_methods_called_directly():
+    """meta.pool's V2/V3 columns are exactly moderated_fe / eb_tau2 on the k >= min_k genes,
+    and exactly what WS-08's comparison (meta_methods.run_methods) computes."""
+    from fedkg_spacebio.evaluation import meta_methods
+    from fedkg_spacebio.federation import eb_tau2, moderation
+
+    rng = np.random.default_rng(11)
+    y, v, _ = simulate(rng, 300, 4, tau2=0.1, v_low=0.02, v_high=0.3)
+    y[:5, 1:] = np.nan  # k = 1: must stay out of both prior fits
+    v[np.isnan(y)] = np.nan
+    out = meta.pool(y, v, min_k=2)
+    use = np.arange(5, 300)
+    v2 = moderation.moderated_fe(y[use], v[use])
+    v3 = eb_tau2.eb_tau2(y[use], v[use])
+    for col, ref in (("v2_se", v2["se"]), ("v2_p", v2["p"]), ("v2_df", v2["df"]),
+                     ("v2_phi_moderated", v2["scale_moderated"]), ("v3_est", v3["est"]),
+                     ("v3_sd", v3["sd"]), ("v3_p", v3["p"]), ("v3_ci_low", v3["ci_low"]),
+                     ("v3_p_tau2_zero", v3["p_tau2_zero"])):
+        np.testing.assert_array_equal(out[col].to_numpy()[use], ref, err_msg=col)
+        assert out[col].iloc[:5].isna().all(), col
+    np.testing.assert_array_equal(out["v3_q"].to_numpy()[use], meta.bh_qvalues(v3["p"]))
+    pri = out.attrs["eb_priors"]
+    assert pri["n_genes"] == 295
+    assert pri["v2"]["d0"] == v2["d0"] or pri["v2"]["d0"] == "inf"
+    assert pri["v3"]["pi"] == v3["pi"].tolist() and pri["v3"]["em_converged"]
+
+    frames, _ = meta_methods.run_methods(y, v, ("v2", "v3"))
+    for m in ("v2", "v3"):
+        for a, b in (("p", "p"), ("q", "q"), ("ci_low", "ci_low")):
+            np.testing.assert_array_equal(out[f"{m}_{b}"].to_numpy(), frames[m][a].to_numpy(),
+                                          err_msg=(m, a))
+    np.testing.assert_array_equal(out["v3_est"].to_numpy(), frames["v3"]["est"].to_numpy())
+
+
+def test_pool_eb_too_few_genes_gives_nan_and_a_reason():
+    # Two genes: V3 can fit a (meaningless) prior, V2's scaled-F fit needs >= 2 usable phi
+    # values. With one usable gene neither can; FE/REML must still be returned.
+    y = np.array([[0.1, 0.3, -0.2], [np.nan, 0.2, np.nan]])
+    v = np.where(np.isnan(y), np.nan, 0.05)
+    out = meta.pool(y, v)
+    assert np.isfinite(out["fe_est"].iloc[0])
+    assert out["v2_p"].isna().all()
+    assert out.attrs["eb_priors"]["v2"]["fitted"] is False
+    assert "at least 2" in out.attrs["eb_priors"]["v2"]["reason"]

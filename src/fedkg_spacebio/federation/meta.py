@@ -332,24 +332,46 @@ def bh_qvalues(p) -> np.ndarray:
     return q
 
 
-POOL_COLUMNS = [
+CLASSIC_COLUMNS = [
     "k", "fe_est", "fe_se", "fe_p", "fe_q", "re_est", "hksj_se", "hksj_ci_low", "hksj_ci_high",
     "re_p", "re_q", "hksj_multiplier", "re_p_untruncated", "tau2", "reml_converged", "i2", "q",
     "q_p",
 ]
+# V2 (moderated multiplicative heterogeneity, D-028) and V3 (empirical-Bayes τ², D-028/D-029).
+# V2's estimate is the FE estimate (it keeps FE weights), so it has no estimate column.
+V2_COLUMNS = ["v2_se", "v2_ci_low", "v2_ci_high", "v2_df", "v2_p", "v2_q", "v2_phi",
+              "v2_phi_moderated"]
+V3_COLUMNS = ["v3_est", "v3_sd", "v3_ci_low", "v3_ci_high", "v3_p", "v3_q",
+              "v3_tau2_post_mean", "v3_p_tau2_zero"]
+EB_COLUMNS = V2_COLUMNS + V3_COLUMNS
+POOL_COLUMNS = CLASSIC_COLUMNS + EB_COLUMNS
 
 
-def pool(y, v, *, level: float = 0.95, truncate: bool = True, min_k: int = 2) -> pd.DataFrame:
-    """Pool every gene: fixed effect, REML random effects with HKSJ, Q, I², BH within the call.
+def pool(y, v, *, level: float = 0.95, truncate: bool = True, min_k: int = 2,
+         eb: bool = True) -> pd.DataFrame:
+    """Pool every gene: FE, REML random effects with HKSJ, Q, I², V2 and V3; BH within the call.
 
-    One row per gene (same order as the input rows), with columns ``POOL_COLUMNS``. Genes with
-    k < min_k get NaN estimates and are left out of the BH correction. The caller decides which
-    genes enter (complete case vs ≥3 sites) and passes only those rows, so BH runs over exactly
-    the genes in that analysis.
+    One row per gene (same order as the input rows). Columns: ``POOL_COLUMNS`` when ``eb`` is
+    True (the default, and what the FLARE server and the central check run), otherwise
+    ``CLASSIC_COLUMNS``. Genes with k < min_k get NaN estimates and are left out of the BH
+    correction **and of the V2/V3 prior fits**. The caller decides which genes enter (complete
+    case vs ≥3 sites) and passes only those rows, so BH and the priors cover exactly the genes
+    in that analysis.
 
-    ``re_p`` uses the truncated HKSJ (D-025, Kaitlin; secondary since D-026).
-    ``re_p_untruncated`` is kept so the write-up can count how often truncation changed the
-    answer.
+    Which column answers which question (D-029):
+    - ``fe_*``: "these missions". Q p and I² are annotations next to it, not filters.
+    - ``v3_*``: "a new mission". It replaced truncated RE-HKSJ in that role.
+    - ``v2_*``: sensitivity for "these missions" if the site SEs are misestimated.
+    - ``re_*`` / ``hksj_*``: REML + truncated HKSJ (D-025), kept for comparison.
+      ``re_p_untruncated`` lets the write-up count how often truncation changed the answer.
+
+    V2 and V3 are empirical-Bayes methods: each fits a prior **across all genes in the call**
+    (V2: the scaled-F prior (d₀, s₀²) for φ = Q/(k−1); V3: a τ² distribution on a grid) and
+    then uses it gene by gene. So, unlike FE and REML, a gene's V2/V3 result depends on which
+    other genes were pooled with it. That's the point (borrowing strength), and it's why the
+    priors are recorded in ``df.attrs["eb_priors"]`` next to every table. Same calls and
+    defaults as WS-08's comparison (``evaluation.meta_methods.run_methods``): V2 untruncated,
+    V3 on a 60-point grid.
     """
     fe = fixed_effect(y, v)
     tau2, converged = tau2_reml(y, v)
@@ -371,4 +393,62 @@ def pool(y, v, *, level: float = 0.95, truncate: bool = True, min_k: int = 2) ->
     df.loc[~use, "reml_converged"] = False
     df["fe_q"] = bh_qvalues(df["fe_p"].to_numpy())
     df["re_q"] = bh_qvalues(df["re_p"].to_numpy())
-    return df[POOL_COLUMNS]
+    if not eb:
+        return df[CLASSIC_COLUMNS]
+    eb_cols, priors = _eb_columns(y, v, use, level=level)
+    for c in EB_COLUMNS:
+        df[c] = eb_cols[c]
+    out = df[POOL_COLUMNS]
+    out.attrs["eb_priors"] = priors
+    return out
+
+
+def _eb_columns(y, v, use: np.ndarray, *, level: float) -> tuple[dict, dict]:
+    """V2 and V3 columns for the genes in ``use`` (k ≥ min_k); NaN for the rest.
+
+    Only the ``use`` rows are passed to the two methods, so genes below min_k can't influence
+    either prior. If no prior can be fitted (too few usable genes; a tiny test input, never a
+    real run with ~10k genes), that method's columns are NaN and the reason is recorded in the
+    returned priors dict instead of raising: the FE and REML columns are still valid.
+    """
+    # Imported here, not at the top: both modules import this one (they reuse as_matrix and
+    # fixed_effect), so a top-level import would be circular.
+    from fedkg_spacebio.federation import eb_tau2, moderation
+
+    Y, V, present = as_matrix(y, v)
+    Y = np.where(present, Y, np.nan)[use]
+    V = np.where(present, V, np.nan)[use]
+    n = len(use)
+    cols = {c: np.full(n, np.nan) for c in EB_COLUMNS}
+    priors: dict = {"n_genes": int(use.sum())}
+
+    try:
+        r = moderation.moderated_fe(Y, V, level=level)  # V2, untruncated (WS-08, D-028)
+    except ValueError as err:
+        priors["v2"] = {"fitted": False, "reason": str(err)}
+    else:
+        for col, key in (("v2_se", "se"), ("v2_ci_low", "ci_low"), ("v2_ci_high", "ci_high"),
+                         ("v2_df", "df"), ("v2_p", "p"), ("v2_phi", "scale"),
+                         ("v2_phi_moderated", "scale_moderated")):
+            cols[col][use] = r[key]
+        cols["v2_q"][use] = bh_qvalues(r["p"])
+        # d₀ can be ∞ (no excess spread in φ̂ across genes); JSON has no ∞, so store a string.
+        priors["v2"] = {"fitted": True, "d0": r["d0"] if np.isfinite(r["d0"]) else "inf",
+                        "s02": r["s02"], "truncate": False}
+
+    try:
+        r = eb_tau2.eb_tau2(Y, V, level=level)  # V3, default 60-point grid
+    except ValueError as err:
+        priors["v3"] = {"fitted": False, "reason": str(err)}
+    else:
+        for col, key in (("v3_est", "est"), ("v3_sd", "sd"), ("v3_ci_low", "ci_low"),
+                         ("v3_ci_high", "ci_high"), ("v3_p", "p"),
+                         ("v3_tau2_post_mean", "tau2_post_mean"),
+                         ("v3_p_tau2_zero", "p_tau2_zero")):
+            cols[col][use] = r[key]
+        cols["v3_q"][use] = bh_qvalues(r["p"])
+        priors["v3"] = {"fitted": True, "grid": r["grid"].tolist(), "pi": r["pi"].tolist(),
+                        "em_iterations": int(r["fit"]["iterations"]),
+                        "em_converged": bool(r["fit"]["converged"]),
+                        "em_loglik": float(r["fit"]["loglik"])}
+    return cols, priors

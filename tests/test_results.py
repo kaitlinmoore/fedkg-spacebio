@@ -32,8 +32,12 @@ def frames():
 
 def test_classify_definitions_and_nan_handling():
     t = pd.DataFrame({"fe_q": [0.01, 0.01, 0.2, np.nan], "q_p": [0.5, 0.05, 0.01, np.nan],
-                      "re_q": [0.04, 0.9, np.nan, np.nan]})
+                      "re_q": [0.04, 0.9, np.nan, np.nan], "v3_q": [0.01, 0.2, np.nan, 0.01],
+                      "v2_q": [0.2, 0.01, np.nan, np.nan]})
     c = rs.classify(t)
+    # V3 and V2 hits don't depend on the FE call or the heterogeneity flag.
+    assert c["v3_hit"].tolist() == [True, False, False, True]
+    assert c["v2_hit"].tolist() == [False, True, False, False]
     assert c["fe_hit"].tolist() == [True, True, False, False]
     assert c["het_flag"].tolist() == [False, True, True, False]
     assert c["fe_hit_consistent"].tolist() == [True, False, False, False]
@@ -42,17 +46,24 @@ def test_classify_definitions_and_nan_handling():
 
 
 def test_thresholds_are_strict_inequalities():
-    t = pd.DataFrame({"fe_q": [rs.FDR_Q], "q_p": [rs.HET_Q_P], "re_q": [rs.FDR_Q]})
+    t = pd.DataFrame({"fe_q": [rs.FDR_Q], "q_p": [rs.HET_Q_P], "re_q": [rs.FDR_Q],
+                      "v3_q": [rs.FDR_Q], "v2_q": [rs.FDR_Q]})
     c = rs.classify(t)
     assert not c["fe_hit"][0] and not c["het_flag"][0] and not c["re_hit"][0]
+    assert not c["v3_hit"][0] and not c["v2_hit"][0]
 
 
 def test_hit_counts_match_columns_and_partition():
     rng = np.random.default_rng(2)
     n = 500
     t = rs.classify(pd.DataFrame({"fe_q": rng.uniform(0, 0.2, n), "q_p": rng.uniform(0, 1, n),
-                                  "re_q": rng.uniform(0, 1, n), "fe_est": rng.normal(0, 1, n)}))
+                                  "re_q": rng.uniform(0, 1, n), "fe_est": rng.normal(0, 1, n),
+                                  "v3_q": rng.uniform(0, 0.5, n), "v3_est": rng.normal(0, 1, n),
+                                  "v2_q": rng.uniform(0, 0.5, n)}))
     h = rs.hit_counts(t)
+    assert h["v3_hit"] == int(t["v3_hit"].sum()) > 0
+    assert h["v3_hit_up"] + h["v3_hit_down"] == h["v3_hit"]
+    assert h["v2_hit"] == int(t["v2_hit"].sum())
     assert h["fe_hit"] == int(t["fe_hit"].sum())
     assert h["fe_hit_consistent"] + h["fe_hit_heterogeneous"] == h["fe_hit"]
     assert h["fe_hit_up"] + h["fe_hit_down"] == h["fe_hit"]
@@ -103,5 +114,8 @@ def test_schema_documents_every_column(frames):
     assert (t["n_ground__SITE-B"] == 4).all() and (t["n_flight__SITE-C"] == 3).all()
     s = rs.schema(t, {"variant": "min2"})
     assert s["schema_version"] == rs.SCHEMA_VERSION
+    assert s["schema_version"] == "phase3a-per-gene/2"
     assert [c["name"] for c in s["columns"]] == list(t.columns)
     assert all(c["description"] for c in s["columns"])
+    names = {c["name"] for c in s["columns"]}
+    assert {"v3_est", "v3_q", "v3_hit", "v2_se", "v2_q", "v2_hit"} <= names
