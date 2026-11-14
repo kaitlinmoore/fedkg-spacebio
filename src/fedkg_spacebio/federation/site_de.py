@@ -30,9 +30,11 @@ The federation boundary (CONTRACTS §4)
 --------------------------------------
 Per gene, the summary carries ``ncbi_gene``, ``log2fc``, ``se``, ``base_mean`` and the three
 ``tested`` flags. Per site, it carries ``n_flight`` and ``n_ground`` and a metadata dict (design,
-DE settings, rounding, mapping drop log, versions). **No counts, no per-sample values, no sample
-names.** ``validate_summary`` enforces this with exact key whitelists. The site calls it before
-sending, and the server calls it again on receipt.
+DE settings, rounding, mapping drop log, versions, and ``inclusion_flags_sha256``, the hash of
+the three flags in ``sites/inclusion.py``'s canonical form). **No counts, no per-sample values,
+no sample names.** ``validate_summary`` enforces this with exact key whitelists, and recomputes
+the flag hash from the flags it was given. The site calls it before sending, and the server
+calls it again on receipt, so a summary whose flags and hash disagree is refused on both sides.
 
 Governance note (for phase 4): REML random effects needs each site's per-gene estimate and SE at
 the server, so these per-site summaries do leave the site. A fixed-effect-only analysis would
@@ -51,6 +53,7 @@ import numpy as np
 import pandas as pd
 
 from fedkg_spacebio.harmonize.gene_map import GeneMap, map_summary
+from fedkg_spacebio.sites import inclusion
 from fedkg_spacebio.sites.loader import SiteData
 
 MIN_BASE_MEAN = 10.0
@@ -67,8 +70,8 @@ GENE_FIELDS = ("ncbi_gene", "log2fc", "se", "base_mean", "tested_mean10", "teste
                "tested_finite_p")
 META_FIELDS = ("client", "site", "stratum", "n_flight", "n_ground", "design", "counts_variant",
                "de_settings", "rounding", "n_genes_de", "n_ercc_dropped", "mapping", "versions",
-               "census_rows")
-TESTED_FLAGS = ("tested_mean10", "tested_indep_filter", "tested_finite_p")
+               "census_rows", "inclusion_flags_sha256")
+TESTED_FLAGS = inclusion.FLAGS  # ("tested_mean10", "tested_indep_filter", "tested_finite_p")
 
 
 def run_de(counts: pd.DataFrame, metadata: pd.DataFrame, design: str,
@@ -179,6 +182,7 @@ def summarize(site: SiteData, res: pd.DataFrame, gene_map: GeneMap) -> SiteSumma
         "versions": versions(),
         "census_rows": [{k: r[k] for k in ("osd_id", "comparison_id", "genelab_contrast")}
                         for r in m["census_rows"]],
+        "inclusion_flags_sha256": inclusion.inclusion_flags_sha256(genes),
     }
     summary = SiteSummary(genes, meta)
     validate_summary(summary.genes, summary.meta)
@@ -210,4 +214,6 @@ def validate_summary(genes: dict, meta: dict) -> None:
     for f in ("n_flight", "n_ground"):
         if not isinstance(meta[f], int) or meta[f] < 1:
             raise ValueError(f"{f} must be a positive int")
+    if meta["inclusion_flags_sha256"] != inclusion.inclusion_flags_sha256(genes):
+        raise ValueError("inclusion_flags_sha256 doesn't match the flags sent")
     json.dumps(meta)  # metadata must be plain JSON (no arrays smuggled in)

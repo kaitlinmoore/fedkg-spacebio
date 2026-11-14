@@ -27,6 +27,16 @@ How a client's samples are chosen
    OSD-379 each feed one ISS client and one Earth client from the **same** count file. Their
    arms are different animals, and this check proves it.
 
+Which policy governs the client (CONTRACTS §3, §5)
+--------------------------------------------------
+Each manifest names its site's policy, ``policy_id`` = ``pol:<site>:<version>`` (§1). A site's
+policy covers all of its clients (SpaceX-16's ISS and Earth clients share one). The default is
+version 1, the open-profile policy of every testbed site. The restricted demo profile passes
+``policy_ids={"SpaceX-16": "pol:SpaceX-16:2"}``. Because the policy is part of what a site
+declares, a profile change also changes the manifest's SHA-256, which job specs record
+(§6 ``provenance.manifest_sha256``). The policies themselves are invented for the testbed
+(§5.5); the manifest only points at one. Evaluating it is the policy layer's job, not this one.
+
 Designs (D-022): SpaceX-4 uses ``~ study + condition`` (two RR-1 cohorts). SpaceX-16 uses
 ``~ age + condition`` because both age groups appear in both arms in both strata. All others use
 ``~ condition``. Each client uses only its own flight and ground samples, with no all-group fits
@@ -36,6 +46,7 @@ Designs (D-022): SpaceX-4 uses ``~ study + condition`` (two RR-1 cohorts). Space
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -104,6 +115,23 @@ def clients_in(stratum: str, exclude: tuple[str, ...] = (),
     return names
 
 
+def default_policy_id(site: str) -> str:
+    """The open-profile policy of a testbed site: version 1."""
+    return f"pol:{site}:1"
+
+
+def check_policy_id(policy_id: str, site: str) -> str:
+    """Return ``policy_id`` if it is ``pol:<site>:<version>`` for this site, else raise.
+
+    A pointer to another site's policy would let one site's rules silently govern another's
+    data, so the site part has to match exactly. Versions are positive integers.
+    """
+    if not isinstance(policy_id, str) or not re.fullmatch(
+            rf"pol:{re.escape(site)}:[1-9][0-9]*", policy_id):
+        raise ValueError(f"policy_id {policy_id!r} is not pol:{site}:<version> for site {site!r}")
+    return policy_id
+
+
 def _as_list(value) -> list:
     return json.loads(value) if isinstance(value, str) else list(value)
 
@@ -127,8 +155,13 @@ def _sample_table_names(path: Path) -> set[str]:
 
 
 def build_manifest(spec: ClientSpec, census: pd.DataFrame, samples: pd.DataFrame,
-                   data_root: Path, counts_variant: str = "standard") -> dict:
-    """The manifest dict for one client. ``samples`` is the census sample table."""
+                   data_root: Path, counts_variant: str = "standard",
+                   policy_id: str | None = None) -> dict:
+    """The manifest dict for one client. ``samples`` is the census sample table.
+
+    ``policy_id`` defaults to ``default_policy_id(spec.site)``.
+    """
+    policy_id = check_policy_id(policy_id or default_policy_id(spec.site), spec.site)
     if counts_variant not in COUNTS_VARIANTS:
         raise ValueError(f"unknown counts variant {counts_variant!r}")
     sources: dict[str, dict] = {}
@@ -172,7 +205,8 @@ def build_manifest(spec: ClientSpec, census: pd.DataFrame, samples: pd.DataFrame
     n_ground = sum(s["arm"] == "ground" for s in all_samples)
     return {
         "client": spec.client, "site": spec.site, "stratum": spec.stratum,
-        "design": spec.design, "contrast": ["condition", "flight", "ground"],
+        "policy_id": policy_id, "design": spec.design,
+        "contrast": ["condition", "flight", "ground"],
         "counts_variant": counts_variant, "studies": sorted(sources),
         "sources": list(sources.values()), "census_rows": rows_used,
         "n_flight": n_flight, "n_ground": n_ground,
@@ -201,13 +235,24 @@ def check_disjoint(manifests: list[dict]) -> None:
 
 def write_manifests(out_dir: Path | None = None, workdir: Path | None = None,
                     counts_variant: str = "standard",
-                    clients: Mapping[str, ClientSpec] = CLIENTS) -> dict[str, Path]:
-    """Build, check and write every client's manifest. Returns {client: path}."""
+                    clients: Mapping[str, ClientSpec] = CLIENTS,
+                    policy_ids: Mapping[str, str] | None = None) -> dict[str, Path]:
+    """Build, check and write every client's manifest. Returns {client: path}.
+
+    ``policy_ids`` maps **site** (not client) → policy ID, for sites that don't use the default
+    version 1. Naming a site that has no client here is an error, so a typo can't silently
+    leave a site on its default policy.
+    """
+    policy_ids = dict(policy_ids or {})
+    unknown = set(policy_ids) - {spec.site for spec in clients.values()}
+    if unknown:
+        raise ValueError(f"policy_ids names sites with no client: {sorted(unknown)}")
     workdir = workdir or default_workdir()
     census = pd.read_csv(workdir / "census" / "liver_census.csv")
     samples = pd.read_csv(workdir / "census" / "liver_samples.csv")
     data_root = workdir / "data" / "osdr"
-    manifests = [build_manifest(spec, census, samples, data_root, counts_variant)
+    manifests = [build_manifest(spec, census, samples, data_root, counts_variant,
+                                policy_ids.get(spec.site))
                  for spec in clients.values()]
     check_disjoint(manifests)
     out_dir = out_dir or workdir / "phase3a" / "manifests" / counts_variant

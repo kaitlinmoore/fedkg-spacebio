@@ -2,6 +2,7 @@
  "client": "SITE-A",
  "site": "FAKE-MISSION-1",
  "stratum": "iss",
+ "policy_id": "pol:FAKE-MISSION-1:1",
  "design": "~ condition",
  "contrast": [
   "condition",

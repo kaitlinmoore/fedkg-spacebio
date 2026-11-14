@@ -113,3 +113,14 @@ def test_validate_summary_rejects_extra_fields(site, res, gmap):
     bad["se"][0] = 0.0
     with pytest.raises(ValueError, match="se finite"):
         validate_summary(bad, summ.meta)
+
+
+def test_summary_carries_the_hash_of_the_flags_it_sends(site, res, gmap):
+    from fedkg_spacebio.sites.inclusion import inclusion_flags_sha256
+
+    summ = summarize(site, res, gmap)
+    assert summ.meta["inclusion_flags_sha256"] == inclusion_flags_sha256(summ.genes)
+    tampered = dict(summ.genes)
+    tampered["tested_mean10"] = ~tampered["tested_mean10"]
+    with pytest.raises(ValueError, match="inclusion_flags_sha256"):
+        validate_summary(tampered, summ.meta)

@@ -12,8 +12,10 @@ from fedkg_spacebio.sites.manifest import (
     RowSpec,
     build_manifest,
     check_disjoint,
+    check_policy_id,
     clients_in,
     find_row,
+    write_manifests,
 )
 
 COUNTS = "GLDS-FAKE-1_rna_seq_RSEM_Unnormalized_Counts_GLbulkRNAseq.csv"
@@ -96,3 +98,47 @@ def test_real_client_table_matches_d020():
         "~ age + condition"
     with pytest.raises(ValueError):
         clients_in("mars")
+
+
+# ---------------------------------------------------------------- policy_id (CONTRACTS §3)
+
+
+def test_manifest_points_at_its_site_policy_version_1_by_default(setup):
+    census, samples, root = setup
+    m = build_manifest(spec("A", ["Carcass"]), census, samples, root)
+    assert m["policy_id"] == "pol:FAKE-MISSION-1:1"
+    m2 = build_manifest(spec("A", ["Carcass"]), census, samples, root,
+                        policy_id="pol:FAKE-MISSION-1:2")
+    assert m2["policy_id"] == "pol:FAKE-MISSION-1:2"
+
+
+@pytest.mark.parametrize("bad", ["pol:FAKE-MISSION-2:1",   # another site's policy
+                                 "pol:FAKE-MISSION-1",     # no version
+                                 "pol:FAKE-MISSION-1:0",   # versions start at 1
+                                 "pol:project:1",          # the project policy isn't a site's
+                                 "FAKE-MISSION-1:1", 3])
+def test_policy_id_must_name_this_sites_policy(setup, bad):
+    census, samples, root = setup
+    with pytest.raises(ValueError, match="policy_id"):
+        build_manifest(spec("A", ["Carcass"]), census, samples, root, policy_id=bad)
+    with pytest.raises(ValueError):
+        check_policy_id(bad, "FAKE-MISSION-1")
+
+
+def test_write_manifests_applies_policy_ids_per_site(setup, tmp_path):
+    census, samples, root = setup
+    work = tmp_path / "work"
+    (work / "census").mkdir(parents=True)
+    census.to_csv(work / "census" / "liver_census.csv", index=False)
+    samples.to_csv(work / "census" / "liver_samples.csv", index=False)
+    (work / "data" / "osdr").mkdir(parents=True)
+    (root / "OSD-FAKE-1").rename(work / "data" / "osdr" / "OSD-FAKE-1")
+    clients = {"A": spec("A", ["Carcass"]), "B": spec("B", ["Upon euthanasia"], "earth")}
+    paths = write_manifests(out_dir=tmp_path / "m", workdir=work, clients=clients,
+                            policy_ids={"FAKE-MISSION-1": "pol:FAKE-MISSION-1:2"})
+    # One site, two clients: both point at the same site policy.
+    assert {json.loads(p.read_text())["policy_id"] for p in paths.values()} == \
+        {"pol:FAKE-MISSION-1:2"}
+    with pytest.raises(ValueError, match="no client"):
+        write_manifests(out_dir=tmp_path / "m", workdir=work, clients=clients,
+                        policy_ids={"FAKE-MISSION-9": "pol:FAKE-MISSION-9:1"})

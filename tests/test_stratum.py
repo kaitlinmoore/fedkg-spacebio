@@ -11,6 +11,7 @@ from nvflare.app_common.abstract.fl_model import FLModel
 
 from fedkg_spacebio.federation import stratum
 from fedkg_spacebio.federation.meta_flare import SUMMARY_META_KEY, summary_from_result
+from fedkg_spacebio.sites.inclusion import inclusion_flags_sha256
 
 
 def frame(ids, lfc, se, mean10, indep=None, finite_p=None):
@@ -68,7 +69,8 @@ def _good_result(client="SITE-A"):
     meta = {k: None for k in ("site", "stratum", "design", "counts_variant", "de_settings",
                               "rounding", "n_genes_de", "n_ercc_dropped", "mapping", "versions",
                               "census_rows")}
-    meta.update(client=client, n_flight=3, n_ground=3)
+    meta.update(client=client, n_flight=3, n_ground=3,
+                inclusion_flags_sha256=inclusion_flags_sha256(genes))
     return FLModel(params=genes, meta={SUMMARY_META_KEY: meta, "client_name": "SITE-A",
                                        "props": {}})
 
@@ -88,4 +90,13 @@ def test_server_rejects_impersonation_and_extra_fields():
     r = _good_result()
     del r.meta[SUMMARY_META_KEY]
     with pytest.raises(ValueError, match="has no"):
+        summary_from_result(r)
+
+
+def test_server_rejects_flags_that_dont_match_their_hash():
+    # A summary whose flags were changed after hashing (or a hash copied from another run) is
+    # refused on receipt: the registry's hash must describe the flags the server pools with.
+    r = _good_result()
+    r.params["tested_mean10"] = np.array([True, False])
+    with pytest.raises(ValueError, match="inclusion_flags_sha256"):
         summary_from_result(r)
